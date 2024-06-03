@@ -2,6 +2,7 @@ package lru_cache
 
 // LRUCache is a least recently used cache for string->string entries.
 type LRUCache struct {
+	cap 		uint
 	hashmap map[string]*node
 	// The most recently used
 	lru_head *node
@@ -15,6 +16,15 @@ type node struct {
 	previous *node
 }
 
+// NewCache constructs an LRUCache.
+func NewCache(cap uint) * LRUCache {
+	return &LRUCache {
+		cap: cap,
+		hashmap: make(map[string]*node, cap),
+		lru_head: nil,
+	}
+}
+
 // insertNode inserts an already allocated node into the first position of the lru list.
 func (cache *LRUCache) insertNode(n *node) {
 	last := cache.lru_head.previous
@@ -24,6 +34,11 @@ func (cache *LRUCache) insertNode(n *node) {
 	n.previous = last
 	cache.lru_head = n
 }
+
+func (cache *LRUCache) ChangeCap(newcap int) {
+	// TODO: Implement
+	return
+} 
 
 func (cache *LRUCache) Len() int {
 	if cache == nil {
@@ -49,6 +64,10 @@ func (cache *LRUCache) Insert(key string, val string) string {
 		cache.Hit(key)
 		cache.hashmap[key].value = val
 		return val
+	}
+
+	if cache.Len() == int(cache.cap) {
+		cache.DropLRU()
 	}
 
 	n := node{key: key, value: val}
@@ -94,6 +113,7 @@ func (cache *LRUCache) Remove(key string) {
 	node.next.previous = node.previous
 }
 
+// DropLRU removes the least recently used entry.
 func (cache *LRUCache) DropLRU() {
 	if cache == nil || cache.Len() == 0 {
 		return
