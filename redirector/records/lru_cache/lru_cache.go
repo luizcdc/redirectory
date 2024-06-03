@@ -9,6 +9,7 @@ type LRUCache struct {
 
 // node is a doubly-linked list node.
 type node struct {
+	key 	 string
 	value    string
 	next     *node
 	previous *node
@@ -50,7 +51,7 @@ func (cache *LRUCache) Insert(key string, val string) string {
 		return val
 	}
 
-	n := node{value: val}
+	n := node{key: key, value: val}
 	cache.hashmap[key] = &n
 
 	if cache.lru_head == nil {
@@ -94,7 +95,11 @@ func (cache *LRUCache) Remove(key string) {
 }
 
 func (cache *LRUCache) DropLRU() {
-	// TODO: implement
+	if cache == nil || cache.Len() == 0 {
+		return
+	}
+	key := cache.lru_head.previous.key
+	cache.Remove(key)
 }
 
 func (cache *LRUCache) Fetch(key string) (value string, ok bool) {
