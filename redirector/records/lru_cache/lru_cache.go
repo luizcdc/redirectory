@@ -35,6 +35,21 @@ func (cache *LRUCache) insertNode(n *node) {
 	cache.lru_head = n
 }
 
+// peek returns the head of the lru list (most recently used).
+func (cache LRUCache) peekMRU() *node {
+	return cache.lru_head
+}
+
+// peekLRU returns the tail of the lru list (least recently used).
+func (cache LRUCache) peekLRU() *node {
+	if cache.lru_head == nil {
+		return nil
+	}
+	return cache.lru_head.previous
+}
+
+// ChangeCap changes the capacity of the cache. If the new capacity is less than the current length 
+// of the cache, the least recently used entries are removed.
 func (cache *LRUCache) ChangeCap(newcap int) {
 	// TODO: Implement
 	return
