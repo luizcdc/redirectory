@@ -1,7 +1,12 @@
 package lru_cache
 
+import (
+	"sync"
+)
+
 // LRUCache is a least recently used cache for string->string entries.
 type LRUCache struct {
+	mu sync.Mutex
 	cap 		uint
 	hashmap map[string]*node
 	// The most recently used
@@ -59,12 +64,23 @@ func (cache *LRUCache) Len() int {
 	if cache == nil {
 		return 0
 	}
+
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+
 	return len(cache.hashmap)
 }
 
 // Contains indicates whether the key is present at the moment.
 func (cache *LRUCache) Contains(key string) bool {
-	return cache != nil && cache.hashmap[key] != nil
+	if cache == nil {
+		return false
+	}
+
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+
+	return cache.hashmap[key] != nil
 }
 
 // Insert creates an entry and inserts it as the most recently used, returning the value to the 
@@ -73,6 +89,9 @@ func (cache *LRUCache) Insert(key string, val string) string {
 	if cache == nil {
 		return val
 	}
+
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
 
 	// When the key is present, we bump it to most recently used and update it.
 	if cache.hashmap[key] != nil {
@@ -102,6 +121,10 @@ func (cache *LRUCache) Hit(key string) {
 	if !cache.Contains(key) {
 		return
 	}
+
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+
 	node := cache.hashmap[key]
 	node.previous.next = node.next
 	node.next.previous = node.previous
@@ -111,9 +134,17 @@ func (cache *LRUCache) Hit(key string) {
 
 // Remove removes a node from the lru list, freeing memory.
 func (cache *LRUCache) Remove(key string) {
-	if cache == nil || cache.hashmap[key] == nil {
+	if cache == nil{ 
 		return
 	}
+
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	
+	if cache.hashmap[key] == nil {
+		return
+	}
+
 	node := cache.hashmap[key]
 	delete(cache.hashmap, key)
 	if cache.Len() == 1 {
@@ -133,6 +164,10 @@ func (cache *LRUCache) DropLRU() {
 	if cache == nil || cache.Len() == 0 {
 		return
 	}
+
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	
 	key := cache.lru_head.previous.key
 	cache.Remove(key)
 }
@@ -141,6 +176,10 @@ func (cache *LRUCache) Fetch(key string) (value string, ok bool) {
 	if cache == nil {
 		return
 	}
+	
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+
 	node, ok := cache.hashmap[key]
 	if !ok {
 		return
