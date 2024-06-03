@@ -1,55 +1,99 @@
 package lru_cache
 
+// LRUCache is a least recently used cache for string->string entries.
 type LRUCache struct {
-	hashmap map[string]*Node
+	hashmap map[string]*node
 	// The most recently used
-	lru_head *Node
+	lru_head *node
 }
 
-type Node struct {
+// node is a doubly-linked list node.
+type node struct {
 	value    string
-	next     *Node
-	previous *Node
+	next     *node
+	previous *node
 }
 
-// InsertNode moves the given node into the head of the lru list (as the most recently used entry).
-func (cache *LRUCache) Hit(key string) {
-	if cache == nil {
-		return
-	}
-	// TODO: implement
+// insertNode inserts an already allocated node into the first position of the lru list.
+func (cache *LRUCache) insertNode(n *node) {
+	last := cache.lru_head.previous
+	last.next = n
+	cache.lru_head.previous = n
+	n.next = cache.lru_head
+	n.previous = last
+	cache.lru_head = n
 }
 
-// Insert creates a node and inserts the given value into the head of the lru list (as the most
-// recently used entry).
-func (cache *LRUCache) Insert(key string, val string) {
+func (cache *LRUCache) Len() int {
 	if cache == nil {
-		return
+		return 0
 	}
-	_, ok := cache.hashmap[key]
-	if ok {
-		return
+	return len(cache.hashmap)
+}
+
+// Contains indicates whether the key is present at the moment.
+func (cache *LRUCache) Contains(key string) bool {
+	return cache != nil && cache.hashmap[key] != nil
+}
+
+// Insert creates an entry and inserts it as the most recently used, returning the value to the 
+// caller.
+func (cache *LRUCache) Insert(key string, val string) string {
+	if cache == nil {
+		return val
 	}
-	n := Node{value: val}
+
+	// When the key is present, we bump it to most recently used and update it.
+	if cache.hashmap[key] != nil {
+		cache.Hit(key)
+		cache.hashmap[key].value = val
+		return val
+	}
+
+	n := node{value: val}
 	cache.hashmap[key] = &n
 
 	if cache.lru_head == nil {
-		n.next, n.previous = nil, nil
+		n.next, n.previous = &n, &n
+		cache.lru_head = &n
 	} else {
-		last := cache.lru_head.previous
-		last.next = &n
-		cache.lru_head.previous = &n
-		n.next = cache.lru_head
-		n.previous = last
+		cache.insertNode(&n)
 	}
-	cache.lru_head = &n
+	return val
+}
+
+// Hit moves the given entry into the head of the lru list (as the most recently used entry).
+func (cache *LRUCache) Hit(key string) {
+	if !cache.Contains(key) {
+		return
+	}
+	node := cache.hashmap[key]
+	node.previous.next = node.next
+	node.next.previous = node.previous
+
+	cache.insertNode(node)
 }
 
 // Remove removes a node from the lru list, freeing memory.
 func (cache *LRUCache) Remove(key string) {
-	if cache == nil {
+	if cache == nil || cache.hashmap[key] == nil {
 		return
 	}
+	node := cache.hashmap[key]
+	delete(cache.hashmap, key)
+	if cache.Len() == 1 {
+		// It is the only node in the cache.
+		cache.lru_head = nil
+		return
+	}
+	if cache.lru_head == node {
+		cache.lru_head = node.next
+	}
+	node.previous.next = node.next
+	node.next.previous = node.previous
+}
+
+func (cache *LRUCache) DropLRU() {
 	// TODO: implement
 }
 
