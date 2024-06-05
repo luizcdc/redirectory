@@ -2,7 +2,6 @@
 package lru_cache
 
 import (
-	"fmt"
 	"sync"
 	"time"
 )
@@ -20,7 +19,7 @@ type LRUCache struct {
 // node is a doubly-linked list node.
 type node struct {
 	key          string
-	value        string
+	value        interface{}
 	last_updated time.Time
 	next         *node
 	previous     *node
@@ -74,14 +73,13 @@ func (cache *LRUCache) peekLRU() *node {
 // changecap changes the capacity of the cache. If the new capacity is less than the current length
 // of the cache, the least recently used entries are removed.
 // Time complexity: O(cache.cap)
-func (cache *LRUCache) changecap(newcap uint) {
+func (cache *LRUCache) changeCap(newcap uint) {
 	newcap = max(0, newcap)
 	if newcap == 0 {
 		cache.hashmap = make(map[string]*node)
 		cache.lru_head = nil
 	} else if newcap <= cache.cap {
-		for i := range uint(cache.len()) - newcap {
-			fmt.Println(i)
+		for range uint(cache.len()) - newcap {
 			cache.dropLRU()
 		}
 		cache.hashmap = make(map[string]*node, newcap)
@@ -104,7 +102,7 @@ func (cache *LRUCache) ChangeCap(newcap uint) {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 
-	cache.changecap(newcap)
+	cache.changeCap(newcap)
 }
 
 // len returns the numbers of entries currently in the cache.
@@ -154,7 +152,7 @@ func (cache *LRUCache) Contains(key string) bool {
 // insert creates an entry and inserts it as the most recently used, returning the value to the
 // caller (without locking).
 // Time complexity: O(1)
-func (cache *LRUCache) insert(key string, val string) string {
+func (cache *LRUCache) insert(key string, val interface{}) interface{} {
 	if cache == nil {
 		panic("Internal method cache.insert() cannot receive nil cache")
 	}
@@ -187,7 +185,7 @@ func (cache *LRUCache) insert(key string, val string) string {
 // Insert creates an entry and inserts it as the most recently used, returning the value to the
 // caller.
 // Time complexity: O(1)
-func (cache *LRUCache) Insert(key string, val string) string {
+func (cache *LRUCache) Insert(key string, val interface{}) interface{} {
 	if cache == nil {
 		return val
 	}
@@ -278,7 +276,7 @@ func (cache *LRUCache) DropLRU() {
 // fetch gets the value for the key if it exists in the cache, also returning whether it
 // found the value. If it did, the key is bumped to most recently used. Doesn't lock the mutex.
 // Time complexity: O(1)
-func (cache *LRUCache) fetch(key string) (value string, ok bool) {
+func (cache *LRUCache) fetch(key string) (value interface{}, ok bool) {
 	node, ok := cache.hashmap[key]
 	if !ok {
 		return
@@ -296,7 +294,7 @@ func (cache *LRUCache) fetch(key string) (value string, ok bool) {
 // Fetch gets the value for the key if it exists in the cache, also returning whether it
 // found the value. If it did, the key is bumped to most recently used.
 // Time complexity: O(1)
-func (cache *LRUCache) Fetch(key string) (value string, ok bool) {
+func (cache *LRUCache) Fetch(key string) (value interface{}, ok bool) {
 	if cache == nil {
 		return
 	}
