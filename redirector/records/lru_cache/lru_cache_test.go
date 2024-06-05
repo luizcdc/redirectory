@@ -1,3 +1,4 @@
+// Provides an LRU Cache with
 package lru_cache
 
 import (
@@ -6,34 +7,34 @@ import (
 )
 
 func TestNewCache(t *testing.T) {
-	const size  uint = 1000
-	c := NewCache(size)
+	const size uint = 1000
+	c := NewCache(size, 1e12)
 	if c == nil {
 		t.Fatalf("NewCache(%v) returned nil", size)
 	}
 	if c.Len() != 0 {
-		t.Error("NewCache(size) returned cache with non-zero length")
+		t.Error("NewCache(size, 1e12) returned cache with non-zero length")
 	}
 	if c.cap != size {
-		t.Error("NewCache(size) returned cache with capacity not equal to 10")
+		t.Error("NewCache(size, 1e12) returned cache with capacity not equal to 10")
 	}
 	if c.lru_head != nil {
-		t.Error("NewCache(size) returned cache with non-nil lru_head")
+		t.Error("NewCache(size, 1e12) returned cache with non-nil lru_head")
 	}
 	if c.hashmap == nil {
-		t.Error("NewCache(size) returned cache with nil hashmap")
+		t.Error("NewCache(size, 1e12) returned cache with nil hashmap")
 	}
 	if len(c.hashmap) != 0 {
-		t.Error("NewCache(size) returned cache with non-zero hashmap")
+		t.Error("NewCache(size, 1e12) returned cache with non-zero hashmap")
 	}
 }
 
 func TestInsert(t *testing.T) {
-	const size  uint = 10
+	const size uint = 10
 	const key = "key"
 	const val = "val"
 
-	c := NewCache(size)
+	c := NewCache(size, 1e12)
 	lenbefore := c.Len()
 	if c.Insert(key, val) != val {
 		t.Error("Insert returned wrong value")
@@ -48,7 +49,7 @@ func TestInsert(t *testing.T) {
 	for i := 0; i < amountExtraInserts; i++ {
 		c.Insert(key+fmt.Sprint(i), val+fmt.Sprint(i))
 	}
-	if c.Len() != amountExtraInserts + 1 {
+	if c.Len() != amountExtraInserts+1 {
 		t.Errorf("%v inserts did not set length to 5", amountExtraInserts+1)
 	}
 	const amountExtraInserts2 = 20
@@ -61,11 +62,11 @@ func TestInsert(t *testing.T) {
 }
 
 func TestContains(t *testing.T) {
-	const size  uint = 20
+	const size uint = 20
 	const key = "key"
 	const val = "val"
 
-	c := NewCache(size)
+	c := NewCache(size, 1e12)
 	if c.Contains(key) {
 		t.Error("Contains returned true for empty cache")
 	}
@@ -86,13 +87,17 @@ func TestContains(t *testing.T) {
 	if !c.Contains("another key") {
 		t.Errorf("Contains returned false for key '%v' in cache", anotherKey)
 	}
+	const different = "a different key"
+	if c.Contains(different) {
+		t.Errorf("Contains returned true for key '%v' not in cache.", different)
+	}
 }
 
 func TestHit(t *testing.T) {
-	const size  uint = 20
+	const size uint = 20
 	const key = "key"
 	const val = "val"
-	c := NewCache(size)
+	c := NewCache(size, 1e12)
 	c.Insert(key, val)
 	for i := 0; i < 5; i++ {
 		c.Insert(key+fmt.Sprint(i), val+fmt.Sprint(i))
@@ -112,9 +117,9 @@ func TestHit(t *testing.T) {
 }
 
 func TestChangeCap(t *testing.T) {
-	const size  uint = 20
+	const size uint = 20
 
-	c := NewCache(size)
+	c := NewCache(size, 1e12)
 	for i := 0; i < 5; i++ {
 		c.Insert(fmt.Sprint(i), fmt.Sprint(i))
 	}
@@ -127,18 +132,28 @@ func TestChangeCap(t *testing.T) {
 		t.Errorf("ChangeCap(%v) did not reduce length to %v", newcap, newcap)
 	}
 	if c.peekLRU().key != "2" {
-		t.Errorf("ChangeCap(%v) did not remove the correct LRU entries. Got: %v, want: %v.", newcap, c.peekLRU().key, "2")
+		t.Errorf(
+			"ChangeCap(%v) did not remove the correct LRU entries. Got: %v, want: %v.",
+			newcap,
+			c.peekLRU().key,
+			"2",
+		)
 	}
 	if c.peekMRU().key != "4" {
-		t.Errorf("ChangeCap(%v) did not keep the correct MRU entries. Got: %v, want: %v.", newcap, c.peekMRU().key, "4")
+		t.Errorf(
+			"ChangeCap(%v) did not keep the correct MRU entries. Got: %v, want: %v.",
+			newcap,
+			c.peekMRU().key,
+			"4",
+		)
 	}
 }
 
 func TestRemove(t *testing.T) {
-	const size  uint = 20
+	const size uint = 20
 	const key = "key"
 	const val = "val"
-	c := NewCache(size)
+	c := NewCache(size, 1e12)
 
 	c.Insert(key, val)
 	c.Remove(key)
@@ -151,18 +166,18 @@ func TestRemove(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		c.Insert(key+fmt.Sprint(i), val+fmt.Sprint(i))
 	}
-	c.Remove(key+fmt.Sprint(2))
-	if c.Contains(key+fmt.Sprint(2)) {
+	c.Remove(key + fmt.Sprint(2))
+	if c.Contains(key + fmt.Sprint(2)) {
 		t.Error("Remove did not remove key from cache")
 	}
 	if c.Len() != 4 {
 		t.Error("Remove did not decrement length")
 	}
- }
+}
 
- func TestDropLRU(t *testing.T) {
-	const size  uint = 20
-	c := NewCache(size)
+func TestDropLRU(t *testing.T) {
+	const size uint = 20
+	c := NewCache(size, 1e12)
 	for i := 0; i < 20; i++ {
 		c.Insert(fmt.Sprint(i), fmt.Sprint(i))
 	}
@@ -186,4 +201,4 @@ func TestRemove(t *testing.T) {
 	if c.peekLRU().key != "2" {
 		t.Error("DropLRU did not remove the correct LRU entry")
 	}
- }
+}

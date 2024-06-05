@@ -1,37 +1,47 @@
+// lru_cache provides an LRUCache, an LRU cache with configurable per-entry expiration.
 package lru_cache
 
 import (
+	"fmt"
 	"sync"
+	"time"
 )
 
 // LRUCache is a least recently used cache for string->string entries.
 type LRUCache struct {
-	mu sync.Mutex
-	cap 		uint
-	hashmap map[string]*node
+	mu         sync.Mutex
+	expiration time.Duration
+	cap        uint
+	hashmap    map[string]*node
 	// The most recently used
 	lru_head *node
 }
 
 // node is a doubly-linked list node.
 type node struct {
-	key 	 string
-	value    string
-	next     *node
-	previous *node
+	key          string
+	value        string
+	last_updated time.Time
+	next         *node
+	previous     *node
 }
 
 // NewCache constructs an LRUCache.
-func NewCache(cap uint) * LRUCache {
-	return &LRUCache {
-		cap: cap,
-		hashmap: make(map[string]*node, cap),
-		lru_head: nil,
+func NewCache(cap uint, expiration time.Duration) *LRUCache {
+	return &LRUCache{
+		expiration: expiration,
+		cap:        cap,
+		hashmap:    make(map[string]*node, cap),
+		lru_head:   nil,
 	}
 }
 
 // insertNode inserts an already allocated node into the first position of the lru list.
+// Time complexity: O(1)
 func (cache *LRUCache) insertNode(n *node) {
+	if cache == nil {
+		panic("Internal method cache.insertNode() cannot receive nil cache")
+	}
 	last := cache.lru_head.previous
 	last.next = n
 	cache.lru_head.previous = n
@@ -41,25 +51,73 @@ func (cache *LRUCache) insertNode(n *node) {
 }
 
 // peek returns the head of the lru list (most recently used).
-func (cache LRUCache) peekMRU() *node {
+// Time complexity: O(1)
+func (cache *LRUCache) peekMRU() *node {
+	if cache == nil {
+		panic("Internal method cache.peekMRU() cannot receive nil cache")
+	}
 	return cache.lru_head
 }
 
 // peekLRU returns the tail of the lru list (least recently used).
-func (cache LRUCache) peekLRU() *node {
+// Time complexity: O(1)
+func (cache *LRUCache) peekLRU() *node {
+	if cache == nil {
+		panic("Internal method cache.peekLRU() cannot receive nil cache")
+	}
 	if cache.lru_head == nil {
 		return nil
 	}
 	return cache.lru_head.previous
 }
 
-// ChangeCap changes the capacity of the cache. If the new capacity is less than the current length 
+// changecap changes the capacity of the cache. If the new capacity is less than the current length
 // of the cache, the least recently used entries are removed.
-func (cache *LRUCache) ChangeCap(newcap int) {
-	// TODO: Implement
-	return
-} 
+// Time complexity: O(cache.cap)
+func (cache *LRUCache) changecap(newcap uint) {
+	newcap = max(0, newcap)
+	if newcap == 0 {
+		cache.hashmap = make(map[string]*node)
+		cache.lru_head = nil
+	} else if newcap <= cache.cap {
+		for i := range uint(cache.len()) - newcap {
+			fmt.Println(i)
+			cache.dropLRU()
+		}
+		cache.hashmap = make(map[string]*node, newcap)
+		var stopAt *node
+		for node := cache.lru_head; node != stopAt; node = node.next {
+			stopAt = cache.lru_head
+			cache.hashmap[node.key] = node
+		}
+	}
+	cache.cap = newcap
+}
 
+// ChangeCap changes the capacity of the cache. If the new capacity is less than the current length
+// of the cache, the least recently used entries are removed.
+// Time complexity: O(cache.cap)
+func (cache *LRUCache) ChangeCap(newcap uint) {
+	if cache == nil {
+		return
+	}
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+
+	cache.changecap(newcap)
+}
+
+// len returns the numbers of entries currently in the cache.
+// Time complexity: O(1)
+func (cache *LRUCache) len() int {
+	if cache == nil {
+		panic("Internal method cache.len() cannot receive nil cache")
+	}
+	return len(cache.hashmap)
+}
+
+// Len returns the number of entries currently in the cache.
+// Time complexity: O(1)
 func (cache *LRUCache) Len() int {
 	if cache == nil {
 		return 0
@@ -68,10 +126,20 @@ func (cache *LRUCache) Len() int {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 
-	return len(cache.hashmap)
+	return cache.len()
+}
+
+// contains indicates whether the key is present at the moment (without locking).
+// Time complexity: O(1)
+func (cache *LRUCache) contains(key string) bool {
+	if cache == nil {
+		panic("Internal method cache.contains() cannot receive nil cache")
+	}
+	return cache.hashmap[key] != nil && time.Since(cache.hashmap[key].last_updated) < cache.expiration
 }
 
 // Contains indicates whether the key is present at the moment.
+// Time complexity: O(1)
 func (cache *LRUCache) Contains(key string) bool {
 	if cache == nil {
 		return false
@@ -80,31 +148,30 @@ func (cache *LRUCache) Contains(key string) bool {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 
-	return cache.hashmap[key] != nil
+	return cache.contains(key)
 }
 
-// Insert creates an entry and inserts it as the most recently used, returning the value to the 
-// caller.
-func (cache *LRUCache) Insert(key string, val string) string {
+// insert creates an entry and inserts it as the most recently used, returning the value to the
+// caller (without locking).
+// Time complexity: O(1)
+func (cache *LRUCache) insert(key string, val string) string {
 	if cache == nil {
-		return val
+		panic("Internal method cache.insert() cannot receive nil cache")
 	}
-
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
 
 	// When the key is present, we bump it to most recently used and update it.
 	if cache.hashmap[key] != nil {
-		cache.Hit(key)
+		cache.hit(key)
 		cache.hashmap[key].value = val
+		cache.hashmap[key].last_updated = time.Now()
 		return val
 	}
 
-	if cache.Len() == int(cache.cap) {
-		cache.DropLRU()
+	if cache.len() == int(cache.cap) {
+		cache.dropLRU()
 	}
 
-	n := node{key: key, value: val}
+	n := node{key: key, value: val, last_updated: time.Now()}
 	cache.hashmap[key] = &n
 
 	if cache.lru_head == nil {
@@ -114,9 +181,36 @@ func (cache *LRUCache) Insert(key string, val string) string {
 		cache.insertNode(&n)
 	}
 	return val
+
+}
+
+// Insert creates an entry and inserts it as the most recently used, returning the value to the
+// caller.
+// Time complexity: O(1)
+func (cache *LRUCache) Insert(key string, val string) string {
+	if cache == nil {
+		return val
+	}
+
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+
+	return cache.insert(key, val)
+}
+
+// hit moves the given entry into the head of the lru list (as the most recently used entry)
+// (without locking).
+// Time complexity: O(1)
+func (cache *LRUCache) hit(key string) {
+	node := cache.hashmap[key]
+	node.previous.next = node.next
+	node.next.previous = node.previous
+
+	cache.insertNode(node)
 }
 
 // Hit moves the given entry into the head of the lru list (as the most recently used entry).
+// Time complexity: O(1)
 func (cache *LRUCache) Hit(key string) {
 	if !cache.Contains(key) {
 		return
@@ -125,29 +219,19 @@ func (cache *LRUCache) Hit(key string) {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 
-	node := cache.hashmap[key]
-	node.previous.next = node.next
-	node.next.previous = node.previous
-
-	cache.insertNode(node)
+	cache.hit(key)
 }
 
-// Remove removes a node from the lru list, freeing memory.
-func (cache *LRUCache) Remove(key string) {
-	if cache == nil{ 
-		return
-	}
-
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-	
+// remove removes a node from the lru list, freeing memory (without locking).
+// Time complexity: O(1)
+func (cache *LRUCache) remove(key string) {
 	if cache.hashmap[key] == nil {
 		return
 	}
 
 	node := cache.hashmap[key]
 	delete(cache.hashmap, key)
-	if cache.Len() == 1 {
+	if cache.len() == 1 {
 		// It is the only node in the cache.
 		cache.lru_head = nil
 		return
@@ -159,7 +243,27 @@ func (cache *LRUCache) Remove(key string) {
 	node.next.previous = node.previous
 }
 
+// Remove removes a node from the lru list, freeing memory.
+// Time complexity: O(1)
+func (cache *LRUCache) Remove(key string) {
+	if cache == nil {
+		return
+	}
+
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+
+	cache.remove(key)
+}
+
+// dropLRU removes the least recently used entry (without locking).
+func (cache *LRUCache) dropLRU() {
+	key := cache.lru_head.previous.key
+	cache.remove(key)
+}
+
 // DropLRU removes the least recently used entry.
+// Time complexity: O(1)
 func (cache *LRUCache) DropLRU() {
 	if cache == nil || cache.Len() == 0 {
 		return
@@ -167,24 +271,38 @@ func (cache *LRUCache) DropLRU() {
 
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
-	
-	key := cache.lru_head.previous.key
-	cache.Remove(key)
+
+	cache.dropLRU()
 }
 
-func (cache *LRUCache) Fetch(key string) (value string, ok bool) {
-	if cache == nil {
-		return
-	}
-	
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-
+// fetch gets the value for the key if it exists in the cache, also returning whether it
+// found the value. If it did, the key is bumped to most recently used. Doesn't lock the mutex.
+// Time complexity: O(1)
+func (cache *LRUCache) fetch(key string) (value string, ok bool) {
 	node, ok := cache.hashmap[key]
 	if !ok {
 		return
 	}
-	cache.Hit(key)
+	if time.Since(node.last_updated) > cache.expiration {
+		cache.remove(key)
+		ok = false
+		return
+	}
+	cache.hit(key)
 	value = node.value
 	return
+}
+
+// Fetch gets the value for the key if it exists in the cache, also returning whether it
+// found the value. If it did, the key is bumped to most recently used.
+// Time complexity: O(1)
+func (cache *LRUCache) Fetch(key string) (value string, ok bool) {
+	if cache == nil {
+		return
+	}
+
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+
+	return cache.fetch(key)
 }
