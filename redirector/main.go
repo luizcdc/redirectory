@@ -46,7 +46,7 @@ func SetRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	jsonBody := setRedirectBody{}
 	length, err := strconv.Atoi(r.Header.Get("content-length"))
 	if err != nil {
-		fmt.Errorf(err.Error())
+		fmt.Println(err.Error())
 		w.WriteHeader(BAD_REQUEST)
 		w.Write([]byte(fmt.Sprintf("<h1>Error %v: bad request2", BAD_REQUEST)))
 		return
@@ -61,7 +61,14 @@ func SetRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		w.Write([]byte(fmt.Sprintf("<h1>Error %v: internal server error", BAD_REQUEST)))
 		return
 	}
-	json.Unmarshal(buffer[:n], &jsonBody)
+	err = json.Unmarshal(buffer[:n], &jsonBody)
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(BAD_REQUEST)
+		w.Write([]byte(fmt.Sprintf("<h1>Error %v: bad request3", BAD_REQUEST)))
+		return
+	
+	}
 	fmt.Println(from, jsonBody.Url, jsonBody.Duration)
 
 	duration := 10
