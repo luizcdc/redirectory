@@ -16,9 +16,6 @@ import (
 	"github.com/luizcdc/redirectory/redirector/records"
 )
 
-const TEMPORARY_REDIRECTION = 302
-const BAD_REQUEST = 400
-const NOT_FOUND = 404
 const SECONDS = 1e9
 
 func GetTarget(path string) string {
@@ -34,12 +31,12 @@ func SetRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	// TODO: respond to error handling with json
 	switch {
 	case len(ps.ByName("path")) < 4:
-		w.WriteHeader(BAD_REQUEST)
-		w.Write([]byte(fmt.Sprintf("<h1>Error %v: bad request1", BAD_REQUEST)))
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("<h1>Error %v: bad request1", http.StatusBadRequest)))
 		return
 	case !strings.Contains(r.Header.Get("content-type"), "application/json"):
-		w.WriteHeader(BAD_REQUEST)
-		w.Write([]byte(fmt.Sprintf("<h1>Error %v: content-type must be 'application/json'.", BAD_REQUEST)))
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("<h1>Error %v: content-type must be 'application/json'.", http.StatusBadRequest)))
 		return
 	}
 
@@ -47,8 +44,8 @@ func SetRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	length, err := strconv.Atoi(r.Header.Get("content-length"))
 	if err != nil {
 		fmt.Println(err.Error())
-		w.WriteHeader(BAD_REQUEST)
-		w.Write([]byte(fmt.Sprintf("<h1>Error %v: bad request2", BAD_REQUEST)))
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("<h1>Error %v: bad request2", http.StatusBadRequest)))
 		return
 	}
 	from := ps.ByName("path")
@@ -58,14 +55,14 @@ func SetRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	if err != nil && err != io.EOF {
 		fmt.Println(err.Error())
 		w.WriteHeader(500)
-		w.Write([]byte(fmt.Sprintf("<h1>Error %v: internal server error", BAD_REQUEST)))
+		w.Write([]byte(fmt.Sprintf("<h1>Error %v: internal server error", http.StatusBadRequest)))
 		return
 	}
 	err = json.Unmarshal(buffer[:n], &jsonBody)
 	if err != nil {
 		fmt.Println(err)
-		w.WriteHeader(BAD_REQUEST)
-		w.Write([]byte(fmt.Sprintf("<h1>Error %v: bad request3", BAD_REQUEST)))
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("<h1>Error %v: bad request3", http.StatusBadRequest)))
 		return
 	
 	}
@@ -90,12 +87,12 @@ func Redirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	redirecto, err := records.GetString(key)
 	if err != nil {
 		log.Printf("Error: no redirect for key '%v'\n", key)
-		w.WriteHeader(NOT_FOUND)
-		w.Write([]byte(fmt.Sprintf("<h1>Error %v: URL not found!</h1>", NOT_FOUND)))
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(fmt.Sprintf("<h1>Error %v: URL not found!</h1>", http.StatusNotFound)))
 		return
 	}
 	w.Header().Set("Location", GetTarget(redirecto))
-	w.WriteHeader(TEMPORARY_REDIRECTION)
+	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
 func main() {
