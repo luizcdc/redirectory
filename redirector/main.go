@@ -1,12 +1,18 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"math"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+	"time"
 
+	"github.com/julienschmidt/httprouter"
 	"github.com/luizcdc/redirectory/redirector/records"
 )
 
@@ -20,40 +26,75 @@ func GetTarget(path string) string {
 	return "https://" + "www.google.com/search?q=" + url.QueryEscape(path)
 }
 
-func SetRedirect(w http.ResponseWriter, r *http.Request) {
-	if len(r.URL.Path) < len("/setredirect/") {
+func SetRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	type setRedirectBody struct {
+		Url      string `json:"url"`
+		Duration uint   `json:"duration"`
+	}
+	// TODO: respond to error handling with json
+	switch {
+	case len(ps.ByName("path")) < 4:
 		w.WriteHeader(BAD_REQUEST)
-		w.Write([]byte(fmt.Sprintf("<h1>Error %v: bad request", BAD_REQUEST)))
+		w.Write([]byte(fmt.Sprintf("<h1>Error %v: bad request1", BAD_REQUEST)))
+		return
+	case !strings.Contains(r.Header.Get("content-type"), "application/json"):
+		w.WriteHeader(BAD_REQUEST)
+		w.Write([]byte(fmt.Sprintf("<h1>Error %v: content-type must be 'application/json'.", BAD_REQUEST)))
 		return
 	}
-	params := strings.Split(r.URL.Path[len("/SetRedirect/"):], "/")[:2]
-	key, value := params[0], params[1]
-	fmt.Println(key, value)
-	if records.SetKey(key, value, 10*SECONDS) {
-		fmt.Printf("Success setting '%v' to '%v'\n", key, value)
+
+	jsonBody := setRedirectBody{}
+	length, err := strconv.Atoi(r.Header.Get("content-length"))
+	if err != nil {
+		fmt.Errorf(err.Error())
+		w.WriteHeader(BAD_REQUEST)
+		w.Write([]byte(fmt.Sprintf("<h1>Error %v: bad request2", BAD_REQUEST)))
+		return
+	}
+	from := ps.ByName("path")
+
+	buffer := make([]byte, max(length, int(math.Pow(2, 16))))
+	n, err := r.Body.Read(buffer)
+	if err != nil && err != io.EOF {
+		fmt.Println(err.Error())
+		w.WriteHeader(500)
+		w.Write([]byte(fmt.Sprintf("<h1>Error %v: internal server error", BAD_REQUEST)))
+		return
+	}
+	json.Unmarshal(buffer[:n], &jsonBody)
+	fmt.Println(from, jsonBody.Url, jsonBody.Duration)
+
+	duration := 10
+	if jsonBody.Duration != 0 {
+		duration = int(jsonBody.Duration)
+	}
+
+	if records.SetKey(from, jsonBody.Url, time.Duration(duration*SECONDS)) {
+		fmt.Printf("Success setting '%v' to '%v'\n", from, jsonBody.Url)
+		// TODO: Response
 		return
 	}
 	fmt.Println("FAILED!")
 }
 
-func Redirect(w http.ResponseWriter, r *http.Request) {
-	key := r.URL.Path[1:]
-	redirectTo, err := records.GetString(key)
+func Redirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	key := ps.ByName("redirectpath")[1:]
+	fmt.Println(key)
+	redirecto, err := records.GetString(key)
 	if err != nil {
-		log.Printf("Error (%v): no redirect for key '%v'\n", err.Error(), key)
+		log.Printf("Error: no redirect for key '%v'\n", key)
 		w.WriteHeader(NOT_FOUND)
 		w.Write([]byte(fmt.Sprintf("<h1>Error %v: URL not found!</h1>", NOT_FOUND)))
 		return
 	}
-	w.Header().Set("Location", GetTarget(redirectTo))
+	w.Header().Set("Location", GetTarget(redirecto))
 	w.WriteHeader(TEMPORARY_REDIRECTION)
 }
 
 func main() {
 	records.MakeCache(5)
-	http.HandleFunc("/setredirect", SetRedirect)
-	http.HandleFunc("/setredirect/", SetRedirect)
-	http.HandleFunc("/", Redirect)
-	log.Println(http.ListenAndServe(":8080", nil))
-
+	router := httprouter.New()
+	router.POST("/set/:path", SetRedirect)
+	router.GET("/*redirectpath", Redirect)
+	log.Fatal(http.ListenAndServe(":8080", router))
 }
