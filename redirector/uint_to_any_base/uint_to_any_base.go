@@ -12,7 +12,8 @@ type NumeralSystem struct {
 	Base       uint32
 	padding   uint32
 	largestNum string
-	digitsList string
+	// TODO: make it a rune slice
+	digitsList []rune
 	digitsMap  map[rune]uint32
 }
 
@@ -51,7 +52,7 @@ func NewNumeralSystem(base uint32, digits string, padding uint32) (*NumeralSyste
 		Base: base,
 		padding: padding,
 		largestNum: strings.Repeat(digits[len(digits)-1:], 64), 
-		digitsList: digits,
+		digitsList: []rune(digits),
 		digitsMap: make(map[rune]uint32, len(digits)),
 	}
 	for i, r := range digits {
@@ -83,11 +84,11 @@ func (system *NumeralSystem) StringToInteger(number string) (uint32, error) {
 func (system *NumeralSystem) IntegerToString(number uint32) (string, error) {
 	if number == 0 {
 		size := int(max(1, system.padding))
-		return strings.Repeat(system.digitsList[:1], size), nil
+		return strings.Repeat(string(system.digitsList[:1]), size), nil
 	}
 	var resultBuilder strings.Builder
 	for number > 0 {
-		resultBuilder.WriteByte(system.digitsList[number % system.Base])
+		resultBuilder.WriteRune(system.digitsList[number % system.Base])
 		number /= system.Base
 	}
 
@@ -98,7 +99,23 @@ func (system *NumeralSystem) IntegerToString(number uint32) (string, error) {
 	}
 	result := string(reversedResult)
 	if uint32(len(result)) < system.padding {
-		result = strings.Repeat(system.digitsList[:1], int(system.padding) - len(result)) + result
+		result = strings.Repeat(string(system.digitsList[:1]), int(system.padding) - len(result)) + result
 	}
 	return result, nil
+}
+
+func (system *NumeralSystem) incr(number []rune) []rune {
+	if len(number) == 0 {
+		return []rune{system.digitsList[0]}
+	}
+	digitValue := int(system.digitsMap[number[len(number) - 1]])
+	if digitValue < len(system.digitsMap) - 1 {
+		return append(number[:len(number) - 1], system.digitsList[digitValue+1])
+	}
+	// recursive case
+	return append(system.incr(number[:len(number) - 1]), system.digitsList[0])
+} 
+
+func (system *NumeralSystem) Incr(number string) (string, error) {
+	return string(system.incr([]rune(number))), nil
 }

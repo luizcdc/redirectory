@@ -19,12 +19,12 @@ func TestNewNumeralSystem(t *testing.T) {
 		{3, "011", nil, fmt.Errorf("all digits must be unique")},
 		{2, "1", nil, fmt.Errorf("not enough digits for base 2")},
 		{2, "012", nil, fmt.Errorf("too many digits for base 2")},
-		{2, "01", &NumeralSystem{2, 4, strings.Repeat("1", 32), "01", map[rune]uint32{'0': 0, '1': 1}}, nil},
-		{10, "0123456789", &NumeralSystem{10, 4, fmt.Sprint(uint32(math.MaxUint32)), "0123456789", map[rune]uint32{'0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9}}, nil},
-		{16, "012345D6789ABCEF", &NumeralSystem{16, 4, fmt.Sprintf("%X", uint32(math.MaxUint32)), "0123456789ABCDEF", map[rune]uint32{'0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, 'A': 10, 'B': 11, 'C': 12, 'D': 13, 'E': 14, 'F': 15}}, nil},
-		{8, "01234567", &NumeralSystem{8, 4, "37777777777", "01234567", map[rune]uint32{'0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7}}, nil},
-		{3, "210", &NumeralSystem{3, 4, "102002022201221111210", "012", map[rune]uint32{'0': 0, '1': 1, '2': 2}}, nil},
-		{3, "120", &NumeralSystem{3, 4, "102002022201221111210", "012", map[rune]uint32{'0': 0, '1': 1, '2': 2}}, nil},
+		{2, "01", &NumeralSystem{2, 4, strings.Repeat("1", 32), []rune("01"), map[rune]uint32{'0': 0, '1': 1}}, nil},
+		{10, "0123456789", &NumeralSystem{10, 4, fmt.Sprint(uint32(math.MaxUint32)), []rune("0123456789"), map[rune]uint32{'0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9}}, nil},
+		{16, "012345D6789ABCEF", &NumeralSystem{16, 4, fmt.Sprintf("%X", uint32(math.MaxUint32)), []rune("0123456789ABCDEF"), map[rune]uint32{'0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, 'A': 10, 'B': 11, 'C': 12, 'D': 13, 'E': 14, 'F': 15}}, nil},
+		{8, "01234567", &NumeralSystem{8, 4, "37777777777", []rune("01234567"), map[rune]uint32{'0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7}}, nil},
+		{3, "210", &NumeralSystem{3, 4, "102002022201221111210", []rune("012"), map[rune]uint32{'0': 0, '1': 1, '2': 2}}, nil},
+		{3, "120", &NumeralSystem{3, 4, "102002022201221111210", []rune("012"), map[rune]uint32{'0': 0, '1': 1, '2': 2}}, nil},
 	}
 
 	for _, tc := range testCases {
@@ -37,7 +37,7 @@ func TestNewNumeralSystem(t *testing.T) {
 			t.Errorf("NewNumeralSystem(%v, %v) error = %v, wantErr %v", tc.base, tc.digits, err, tc.wantErr)
 		}
 		if err == nil && got != nil {
-			if got.Base != tc.want.Base || got.largestNum != tc.want.largestNum || got.digitsList != tc.want.digitsList {
+			if got.Base != tc.want.Base || got.largestNum != tc.want.largestNum || string(got.digitsList) != string(tc.want.digitsList) {
 				t.Errorf("NewNumeralSystem(%v, %v) = %v, want %v", tc.base, tc.digits, got, tc.want)
 			}
 			for k, v := range got.digitsMap {
@@ -93,5 +93,40 @@ func TestStringToIntegerAndIntegerToString(t *testing.T) {
 	_, err := testCases[0].ns.StringToInteger("A") // Invalid character
 	if err == nil {
 		t.Errorf("StringToInteger(\"A\") should have returned an error")
+	}
+}
+
+func TestIncr(t *testing.T) {
+	ns10, _ := NewNumeralSystem(10, "0123456789", 4)
+	ns3, _ := NewNumeralSystem(3, "012", 4)
+	ns8, _ := NewNumeralSystem(8, "01234567", 4)
+	testCases := []struct {
+		number string
+		want   string
+		ns *NumeralSystem
+	}{
+		{"0000", "0001", ns10},
+		{"0001", "0002", ns10},
+		{"12345", "12346", ns10},
+		{"9999", "00000", ns10},
+		{"102002022201221111200", "102002022201221111201", ns3},
+		{"102002022201221111201", "102002022201221111202", ns3},
+		{"102002022201221111202", "102002022201221111210", ns3},
+		{"7777777777", "00000000000", ns8},
+		{"0000000000", "0000000001", ns8},
+		{"0000000001", "0000000002", ns8},
+		{"0000000007", "0000000010", ns8},
+		{"0000000010", "0000000011", ns8},
+		{"0000000017", "0000000020", ns8},
+	}
+
+	for _, tc := range testCases {
+		got, err := tc.ns.Incr(tc.number)
+		if err != nil {
+			t.Errorf("Incr(%v) error = %v", tc.number, err)
+		} else
+		if got != tc.want {
+			t.Errorf("Incr(%v) = %v, want %v", tc.number, got, tc.want)
+		}
 	}
 }
