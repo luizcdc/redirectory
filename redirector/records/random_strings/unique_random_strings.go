@@ -7,6 +7,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/luizcdc/redirectory/redirector/records"
 	"github.com/luizcdc/redirectory/redirector/uint_to_any_base"
 )
 
@@ -79,9 +80,17 @@ func (gen *Generator) populate() {
 	gen.current = len(gen.allAvailable) - 1
 }
 
-func (gen * Generator) getUsedFromRedis(wg sync.WaitGroup) map[string]struct{} {
-	// TODO: parallel  
-	return make(map[string]struct{})
+func (gen * Generator) getUsedFromRedis() map[string]struct{} {
+	// TODO: environment variable for prefix, varying between prod and dev environments
+	keys, err := records.GetAllKeysWithoutPrefix("PREFIX")
+	if err != nil {
+		return map[string]struct{}{}
+	}
+	allUsed := make(map[string]struct{}, len(keys))
+	for _, key := range keys {
+		allUsed[key] = struct{}{}
+	}
+	return allUsed
 }
 
 func (gen *Generator) Next() string {
