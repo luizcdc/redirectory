@@ -15,6 +15,7 @@ import (
 
 var cache *lru_cache.LRUCache
 
+// MakeCache initializes the local cache with the specified capacity.
 func MakeCache(cap uint) {
 	// TODO: set up environment variable for cache duration
 	if cache == nil {
