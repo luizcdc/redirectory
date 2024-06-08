@@ -53,3 +53,20 @@ func GetString(key string) (string, error) {
 	}
 	return client.Get(context.Background(), key).Result()
 }
+
+// GetAllStringsWithoutPrefix retrieves all keys that start with a prefix, with the
+// prefix itself removed.
+func GetAllStringsWithoutPrefix(prefix string) ([]string, error) {
+	client, err := redis_client.GetClientInstance()
+	if err != nil {
+		return []string{}, err
+	}
+	keys, err := client.Keys(context.Background(), prefix + "*").Result()
+	if err != nil {
+		return keys, err
+	}
+	for i := range keys {
+		keys[i] = keys[i][len(prefix):]
+	}
+	return keys, err
+}
