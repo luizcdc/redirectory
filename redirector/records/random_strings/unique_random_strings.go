@@ -81,8 +81,7 @@ func (gen *Generator) populate() {
 }
 
 func (gen * Generator) getUsedFromRedis() map[string]struct{} {
-	// TODO: environment variable for prefix, varying between prod and dev environments
-	keys, err := records.GetAllKeysWithoutPrefix("PREFIX")
+	keys, err := records.GetAllKeys()
 	if err != nil {
 		return map[string]struct{}{}
 	}

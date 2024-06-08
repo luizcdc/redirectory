@@ -1,0 +1,11 @@
+runtime: go122
+
+instance_class: F1
+
+env_variables:
+    INTERNAL_CACHE_EXPIRE_SECONDS: "300"
+    RUNNING_ENV: "PROD"
+
+automatic_scaling:
+    max_instances: 1
+    min_instances: 1
