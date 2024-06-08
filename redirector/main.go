@@ -16,8 +16,6 @@ import (
 	"github.com/luizcdc/redirectory/redirector/records"
 )
 
-const SECONDS = 1e9
-
 func GetTarget(path string) string {
 	path = strings.ToLower(path)
 	return "https://" + "www.google.com/search?q=" + url.QueryEscape(path)
@@ -73,7 +71,7 @@ func SetRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		duration = int(jsonBody.Duration)
 	}
 
-	if records.SetKey(from, jsonBody.Url, time.Duration(duration*SECONDS)) {
+	if records.SetKey(from, jsonBody.Url, time.Duration(duration) * time.Second) {
 		fmt.Printf("Success setting '%v' to '%v'\n", from, jsonBody.Url)
 		// TODO: Response
 		return
