@@ -11,8 +11,8 @@ import (
 type NumeralSystem struct {
 	Base       uint32
 	padding   uint32
-	largestNum string
-	// TODO: make it a rune slice
+	LargestNum string
+	Zero string
 	digitsList []rune
 	digitsMap  map[rune]uint32
 }
@@ -51,7 +51,8 @@ func NewNumeralSystem(base uint32, digits string, padding uint32) (*NumeralSyste
 	result := NumeralSystem{
 		Base: base,
 		padding: padding,
-		largestNum: strings.Repeat(digits[len(digits)-1:], 64), 
+		LargestNum: strings.Repeat(digits[len(digits)-1:], 64),
+		Zero: strings.Repeat(digits[:1], int(padding)),
 		digitsList: []rune(digits),
 		digitsMap: make(map[rune]uint32, len(digits)),
 	}
@@ -59,12 +60,12 @@ func NewNumeralSystem(base uint32, digits string, padding uint32) (*NumeralSyste
 		result.digitsMap[r] = uint32(i)
 	}
 
-	result.largestNum, err = result.IntegerToString(math.MaxUint32)
+	result.LargestNum, err = result.IntegerToString(math.MaxUint32)
 	return &result, err
 }
 
 func (system *NumeralSystem) StringToInteger(number string) (uint32, error) {
-	if len(number) > len(system.largestNum) || len(number) == len(system.largestNum) && number > system.largestNum {
+	if len(number) > len(system.LargestNum) || len(number) == len(system.LargestNum) && number > system.LargestNum {
 		return 0, errors.New("overflow: the number as a string is too large to be converted to uint32")
 	}
 	var digitValue uint32 = 1

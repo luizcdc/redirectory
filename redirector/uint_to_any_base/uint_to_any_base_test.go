@@ -19,12 +19,12 @@ func TestNewNumeralSystem(t *testing.T) {
 		{3, "011", nil, fmt.Errorf("all digits must be unique")},
 		{2, "1", nil, fmt.Errorf("not enough digits for base 2")},
 		{2, "012", nil, fmt.Errorf("too many digits for base 2")},
-		{2, "01", &NumeralSystem{2, 4, strings.Repeat("1", 32), []rune("01"), map[rune]uint32{'0': 0, '1': 1}}, nil},
-		{10, "0123456789", &NumeralSystem{10, 4, fmt.Sprint(uint32(math.MaxUint32)), []rune("0123456789"), map[rune]uint32{'0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9}}, nil},
-		{16, "012345D6789ABCEF", &NumeralSystem{16, 4, fmt.Sprintf("%X", uint32(math.MaxUint32)), []rune("0123456789ABCDEF"), map[rune]uint32{'0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, 'A': 10, 'B': 11, 'C': 12, 'D': 13, 'E': 14, 'F': 15}}, nil},
-		{8, "01234567", &NumeralSystem{8, 4, "37777777777", []rune("01234567"), map[rune]uint32{'0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7}}, nil},
-		{3, "210", &NumeralSystem{3, 4, "102002022201221111210", []rune("012"), map[rune]uint32{'0': 0, '1': 1, '2': 2}}, nil},
-		{3, "120", &NumeralSystem{3, 4, "102002022201221111210", []rune("012"), map[rune]uint32{'0': 0, '1': 1, '2': 2}}, nil},
+		{2, "01", &NumeralSystem{2, 4, strings.Repeat("1", 32), "0000", []rune("01"), map[rune]uint32{'0': 0, '1': 1}}, nil},
+		{10, "0123456789", &NumeralSystem{10, 4, fmt.Sprint(uint32(math.MaxUint32)), "0000", []rune("0123456789"), map[rune]uint32{'0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9}}, nil},
+		{16, "012345D6789ABCEF", &NumeralSystem{16, 4, fmt.Sprintf("%X", uint32(math.MaxUint32)), "0000", []rune("0123456789ABCDEF"), map[rune]uint32{'0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, 'A': 10, 'B': 11, 'C': 12, 'D': 13, 'E': 14, 'F': 15}}, nil},
+		{8, "01234567", &NumeralSystem{8, 4, "37777777777", "0000", []rune("01234567"), map[rune]uint32{'0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7}}, nil},
+		{3, "210", &NumeralSystem{3, 4, "102002022201221111210", "0000", []rune("012"), map[rune]uint32{'0': 0, '1': 1, '2': 2}}, nil},
+		{3, "120", &NumeralSystem{3, 4, "102002022201221111210", "0000", []rune("012"), map[rune]uint32{'0': 0, '1': 1, '2': 2}}, nil},
 	}
 
 	for _, tc := range testCases {
@@ -37,7 +37,7 @@ func TestNewNumeralSystem(t *testing.T) {
 			t.Errorf("NewNumeralSystem(%v, %v) error = %v, wantErr %v", tc.base, tc.digits, err, tc.wantErr)
 		}
 		if err == nil && got != nil {
-			if got.Base != tc.want.Base || got.largestNum != tc.want.largestNum || string(got.digitsList) != string(tc.want.digitsList) {
+			if got.Base != tc.want.Base || got.LargestNum != tc.want.LargestNum || string(got.digitsList) != string(tc.want.digitsList) {
 				t.Errorf("NewNumeralSystem(%v, %v) = %v, want %v", tc.base, tc.digits, got, tc.want)
 			}
 			for k, v := range got.digitsMap {
