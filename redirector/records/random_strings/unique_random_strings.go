@@ -34,7 +34,7 @@ func NewGenerator(strSize uint32, alphabet []rune) *Generator {
 	return gen
 }
 
-func (gen * Generator) populateRange(start, end int, wg sync.WaitGroup) {
+func (gen * Generator) populateRange(start, end int, wg *sync.WaitGroup) {
 	defer wg.Done()
 	currentNumber, _ := gen.numberSystem.IntegerToString(uint32(start))
 	for i := start; i < end; i++ {
@@ -50,7 +50,7 @@ func (gen *Generator) populate() {
 	var wg sync.WaitGroup
 	for i := 0; i < runtime.NumCPU(); i++ {
 		wg.Add(1)
-		go gen.populateRange(i*windowSize, max((i+1)*windowSize, len(gen.allAvailable)), wg)
+		go gen.populateRange(i*windowSize, max((i+1)*windowSize, len(gen.allAvailable)), &wg)
 	}
 	alreadyUsedCount := 0
 	// alreadyUsed falls out of scope as soon as it isn't needed, enabling the GC to reclaim memory

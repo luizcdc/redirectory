@@ -113,7 +113,6 @@ func (system *NumeralSystem) incr(number []rune) []rune {
 	if digitValue < len(system.digitsMap) - 1 {
 		return append(number[:len(number) - 1], system.digitsList[digitValue+1])
 	}
-	// recursive case
 	return append(system.incr(number[:len(number) - 1]), system.digitsList[0])
 } 
 
