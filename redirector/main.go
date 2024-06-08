@@ -8,13 +8,26 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/julienschmidt/httprouter"
 	"github.com/luizcdc/redirectory/redirector/records"
 )
+
+func loadEnv() {
+	if os.Getenv("GAE_APPLICATION") != "" {
+		log.Println("Running on Google App Engine, environment variables are already set.")
+		// TODO: load secrets from GCP Secret Manager
+	} else {
+		if godotenv.Load() != nil {
+			log.Fatal("Error loading .env file")
+		}
+	}
+}
 
 func GetTarget(path string) string {
 	path = strings.ToLower(path)
@@ -62,7 +75,7 @@ func SetRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(fmt.Sprintf("<h1>Error %v: bad request3", http.StatusBadRequest)))
 		return
-	
+
 	}
 	fmt.Println(from, jsonBody.Url, jsonBody.Duration)
 
@@ -71,7 +84,7 @@ func SetRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		duration = int(jsonBody.Duration)
 	}
 
-	if records.SetKey(from, jsonBody.Url, time.Duration(duration) * time.Second) {
+	if records.SetKey(from, jsonBody.Url, time.Duration(duration)*time.Second) {
 		fmt.Printf("Success setting '%v' to '%v'\n", from, jsonBody.Url)
 		// TODO: Response
 		return

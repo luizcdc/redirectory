@@ -34,7 +34,7 @@ func NewGenerator(strSize uint32, alphabet []rune) *Generator {
 	return gen
 }
 
-func (gen * Generator) populateRange(start, end int, wg *sync.WaitGroup) {
+func (gen *Generator) populateRange(start, end int, wg *sync.WaitGroup) {
 	defer wg.Done()
 	currentNumber, _ := gen.numberSystem.IntegerToString(uint32(start))
 	for i := start; i < end; i++ {
@@ -46,7 +46,7 @@ func (gen * Generator) populateRange(start, end int, wg *sync.WaitGroup) {
 func (gen *Generator) populate() {
 	// To populate from i to i+WINDOW, it should start from gen.numberSystem.IntegerToString(i) and
 	// work parallel to the other populateSliceFrom goroutines.
-	windowSize := (len(gen.allAvailable) / runtime.NumCPU())+1
+	windowSize := (len(gen.allAvailable) / runtime.NumCPU()) + 1
 	var wg sync.WaitGroup
 	for i := 0; i < runtime.NumCPU(); i++ {
 		wg.Add(1)
@@ -67,11 +67,11 @@ func (gen *Generator) populate() {
 	}
 	sort.Strings(gen.allAvailable)
 	oldAllAvailable := gen.allAvailable[alreadyUsedCount:]
-	gen.allAvailable = make([]string, len(gen.allAvailable) - alreadyUsedCount)
+	gen.allAvailable = make([]string, len(gen.allAvailable)-alreadyUsedCount)
 	copy(gen.allAvailable, oldAllAvailable)
 	{
 		var tmpString string
-		rand.Shuffle(len(gen.allAvailable), func (i,j int) {
+		rand.Shuffle(len(gen.allAvailable), func(i, j int) {
 			tmpString = gen.allAvailable[i]
 			gen.allAvailable[i] = gen.allAvailable[j]
 			gen.allAvailable[j] = tmpString
@@ -80,7 +80,7 @@ func (gen *Generator) populate() {
 	gen.current = len(gen.allAvailable) - 1
 }
 
-func (gen * Generator) getUsedFromRedis() map[string]struct{} {
+func (gen *Generator) getUsedFromRedis() map[string]struct{} {
 	keys, err := records.GetAllKeys()
 	if err != nil {
 		return map[string]struct{}{}

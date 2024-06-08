@@ -27,7 +27,7 @@ func MakeCache(cap uint) {
 		return
 	}
 	if cache == nil {
-		cache = lru_cache.NewCache(cap, time.Duration(internal_cache_expire_seconds) * time.Second)
+		cache = lru_cache.NewCache(cap, time.Duration(internal_cache_expire_seconds)*time.Second)
 	} else {
 		cache.ChangeCap(cap)
 	}
@@ -75,7 +75,7 @@ func GetAllKeys() ([]string, error) {
 	if err != nil {
 		return []string{}, err
 	}
-	keys, err := client.Keys(context.Background(), prefix + "*").Result()
+	keys, err := client.Keys(context.Background(), prefix+"*").Result()
 	if err != nil {
 		return keys, err
 	}
