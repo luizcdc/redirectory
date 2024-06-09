@@ -39,7 +39,7 @@ func SetKey(key string, value interface{}, ttl time.Duration) bool {
 	if err != nil {
 		return false
 	}
-	success := client.Set(context.Background(), AddPrefix(key), value, ttl).Err() == nil
+	success := client.Set(context.TODO(), AddPrefix(key), value, ttl).Err() == nil
 	if success {
 		cache.Insert(key, value)
 	}
@@ -64,7 +64,7 @@ func GetString(key string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return client.Get(context.Background(), AddPrefix(key)).Result()
+	return client.Get(context.TODO(), AddPrefix(key)).Result()
 }
 
 // GetAllKeys retrieves all keys that start with a prefix, with the
@@ -75,7 +75,7 @@ func GetAllKeys() ([]string, error) {
 	if err != nil {
 		return []string{}, err
 	}
-	keys, err := client.Keys(context.Background(), prefix+"*").Result()
+	keys, err := client.Keys(context.TODO(), prefix+"*").Result()
 	if err != nil {
 		return keys, err
 	}
@@ -83,4 +83,12 @@ func GetAllKeys() ([]string, error) {
 		keys[i] = keys[i][len(prefix):]
 	}
 	return keys, err
+}
+
+func clearRedis() {
+	client, err := redis_client.GetClientInstance()
+	if err != nil {
+		return
+	}
+	client.FlushAll(context.TODO())
 }

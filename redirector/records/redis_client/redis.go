@@ -27,7 +27,7 @@ func instantiateClient() error {
 			Password: os.Getenv("REDIS_PASSWORD"),
 			DB:       redis_db,
 		})
-	err = redis_client_singleton.Ping(context.Background()).Err()
+	err = redis_client_singleton.Ping(context.TODO()).Err()
 	if err != nil {
 		log.Printf("Error (%v): failed creating Redis client\n", err)
 	} else {

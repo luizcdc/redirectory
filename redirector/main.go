@@ -153,7 +153,7 @@ func SetSpecificRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.P
 		return
 	}
 
-	duration := 10
+	duration := 60
 	if jsonBody.Duration != 0 {
 		duration = int(jsonBody.Duration)
 	}
@@ -193,26 +193,27 @@ func SetRandomRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 		Duration uint   `json:"duration"`
 	}
 
-	reply := func(status int, err interface{}, redirectPath string) {
+	reply := func(status int, err interface{}, redirectPath string, duration uint) {
 		w.WriteHeader(status)
 		resp, _ := json.Marshal(struct {
 			Error interface{} `json:"error"`
 			Path  string      `json:"path"`
-		}{err, redirectPath})
+			Duration uint   `json:"duration"`
+		}{err, redirectPath, duration})
 		w.Write(resp)
 	}
 
 	w.Header().Add("Content-Type", "application/json")
 	err, buffer, sizeRead := readJSONIntoBuffer(r)
 	if err != nil {
-		reply(http.StatusBadRequest, err.Error(), "")
+		reply(http.StatusBadRequest, err.Error(), "", 0)
 		log.Println(err)
 		return
 	}
 
 	var jsonBody setRandomRedirectBody
 	if err := json.Unmarshal(buffer[:sizeRead], &jsonBody); err != nil {
-		reply(http.StatusBadRequest, err.Error(), "")
+		reply(http.StatusBadRequest, err.Error(), "", 0)
 		log.Println(err)
 		return
 	}
@@ -220,11 +221,11 @@ func SetRandomRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 	parsedUrl, err := url.Parse(jsonBody.Url)
 	switch {
 	case err != nil:
-		reply(http.StatusBadRequest, err.Error(), "")
+		reply(http.StatusBadRequest, err.Error(), "", 0)
 		log.Println(err)
 		return
 	case !parsedUrl.IsAbs():
-		reply(http.StatusBadRequest, "the provided url must be absolute", "")
+		reply(http.StatusBadRequest, "the provided url must be absolute", "", 0)
 		return
 	}
 
@@ -235,7 +236,7 @@ func SetRandomRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 		var err error
 		chosen, err = intToString.IntegerToString(uint32(rand.Int31n(nPossibilities)))
 		if err != nil {
-			reply(http.StatusInternalServerError, err.Error(), "")
+			reply(http.StatusInternalServerError, err.Error(), "", 0)
 			return
 		}
 		if _, err := records.GetString(chosen); err != nil {
@@ -243,18 +244,18 @@ func SetRandomRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 		}
 	}
 
-	duration := 10
+	duration := uint(60)
 	if jsonBody.Duration != 0 {
-		duration = int(jsonBody.Duration)
+		duration = jsonBody.Duration
 	}
 
 	if records.SetKey(chosen, parsedUrl.String(), time.Duration(duration)*time.Second) {
-		reply(http.StatusOK, nil, chosen)
+		reply(http.StatusOK, nil, chosen, duration)
 		log.Printf("Success setting '%v' to '%v'\n", chosen, parsedUrl.String())
 		return
 	}
 
-	reply(http.StatusInternalServerError, fmt.Sprintf("failure setting '%v' to '%v'", chosen, parsedUrl.String()), "")
+	reply(http.StatusInternalServerError, fmt.Sprintf("failure setting '%v' to '%v'", chosen, parsedUrl.String()), "", 0)
 	log.Printf("Failure setting '%v' to '%v'\n", chosen, parsedUrl.String())
 
 }
@@ -278,7 +279,10 @@ func readJSONIntoBuffer(r *http.Request) (error, []byte, int) {
 
 	buffer := make([]byte, min(length, int(math.Pow(2, 16))))
 	sizeRead, err := r.Body.Read(buffer)
-	if err != nil && err != io.EOF {
+	if err == io.EOF {
+		err = nil
+	}
+	if err != nil {
 
 		log.Println(err.Error())
 		return err, nil, 0
@@ -302,7 +306,7 @@ func Redirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 func main() {
 	loadEnv()
-	records.MakeCache(5)
+	// records.MakeCache(5)
 	router := httprouter.New()
 	router.POST("/set/:path", SetSpecificRedirect)
 	router.POST("/set", SetRandomRedirect)
