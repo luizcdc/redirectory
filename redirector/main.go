@@ -18,6 +18,7 @@ import (
 	"github.com/luizcdc/redirectory/redirector/records"
 )
 
+// loadEnv loads environment variables from a .env file if the application is not running on Google App Engine.
 func loadEnv() {
 	if os.Getenv("GAE_APPLICATION") != "" {
 		log.Println("Running on Google App Engine, environment variables are already set.")
@@ -29,6 +30,23 @@ func loadEnv() {
 	}
 }
 
+// SetRedirect sets a redirect for a given path.
+// It expects a JSON payload in the request body with the following structure:
+// {
+//   "url": "https://example.com",
+//   "duration": 10
+// }
+// The "url" field specifies the target URL for the redirect, and the "duration" field (optional) 
+// specifies the duration of the redirect in seconds.
+// The function returns a JSON response indicating the success or failure of setting the redirect.
+// If the redirect is set successfully, the response will be:
+// {
+//   "error": null
+// }
+// If there is an error in setting the redirect, the response will be:
+// {
+//   "error": "failure message"
+// }
 func SetRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	type setRedirectBody struct {
 		Url      string `json:"url"`
@@ -113,6 +131,7 @@ func SetRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 }
 
+// Redirect serves the redirect request for a previously set redirect path.
 func Redirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	key := ps.ByName("redirectpath")[1:]
 	fmt.Println(key)
