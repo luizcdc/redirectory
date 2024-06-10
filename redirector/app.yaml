@@ -7,6 +7,9 @@ env_variables:
     RUNNING_ENV: "PROD"
     ALLOWED_CHARS: "abcdefghijklmnopqrstuvwxyz0123456789-_"
     DEFAULT_RANDOM_STRING_SIZE: 4
+    DEFAULT_DURATION: 2592000 # 30 days
+    REDIS_HOST: "10.142.0.2"
+    REDIS_PORT: "6379"
 
 automatic_scaling:
     max_instances: 1

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,10 +15,12 @@ import (
 	"strings"
 	"time"
 
+	secretmanager "cloud.google.com/go/secretmanager/apiv1"
 	"github.com/joho/godotenv"
 	"github.com/julienschmidt/httprouter"
 	"github.com/luizcdc/redirectory/redirector/records"
 	"github.com/luizcdc/redirectory/redirector/uint_to_any_base"
+	secretmanagerpb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
 )
 
 var intToString *uint_to_any_base.NumeralSystem
@@ -30,6 +33,28 @@ func loadEnv() {
 	if os.Getenv("GAE_APPLICATION") != "" {
 		log.Println("Running on Google App Engine, environment variables are already set.")
 		// TODO: load secrets from GCP Secret Manager
+		ctx := context.Background()
+		client, err := secretmanager.NewClient(ctx)
+		if err != nil {
+			log.Fatalf("failed to create secretmanager client: %v", err)
+		}
+		// Build the request. Secret name: "projects/811075979077/secrets/redirectory-redis-password/versions/1"
+		req := &secretmanagerpb.AccessSecretVersionRequest{
+			Name: "projects/811075979077/secrets/redirectory-redis-password/versions/1",
+		}
+
+		// Call the API.
+		result, err := client.AccessSecretVersion(ctx, req)
+		if err != nil {
+			log.Fatalf("failed to access secret version: %v", err)
+		}
+		// let's print the secret
+		secret := result.Payload.Data
+		fmt.Printf("The secret is: %s\n", secret)
+		// let's set the environment variable
+		os.Setenv("REDIS_PASSWORD", string(secret))
+
+
 	} else {
 		if godotenv.Load() != nil {
 			log.Fatal("Error loading .env file")
