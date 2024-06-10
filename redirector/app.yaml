@@ -10,6 +10,8 @@ env_variables:
     DEFAULT_DURATION: 2592000 # 30 days
     REDIS_HOST: "10.142.0.2"
     REDIS_PORT: "6379"
+    REDIS_PASSWORD_RESOURCE_ID: "projects/811075979077/secrets/redirectory-redis-password/versions/latest"
+    API_KEY_RESOURCE_ID: "projects/811075979077/secrets/redirectory-api-key/versions/latest"
 
 automatic_scaling:
     max_instances: 1

@@ -16,63 +16,76 @@ import (
 	"time"
 
 	secretmanager "cloud.google.com/go/secretmanager/apiv1"
+	secretmanagerpb "cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
 	"github.com/joho/godotenv"
 	"github.com/julienschmidt/httprouter"
 	"github.com/luizcdc/redirectory/redirector/records"
 	"github.com/luizcdc/redirectory/redirector/uint_to_any_base"
-	secretmanagerpb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
 )
 
 var intToString *uint_to_any_base.NumeralSystem
 var ALLOWED_CHARS string
 var RANDOM_SIZE int
 
+// setConstants sets the global constants from the environment variables.
+func setConstants() {
+	ALLOWED_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	RANDOM_SIZE = 5
+	var err error
+	intToString, err = uint_to_any_base.NewNumeralSystem(uint32(len(ALLOWED_CHARS)), ALLOWED_CHARS, uint32(RANDOM_SIZE))
+	if err != nil {
+		log.Fatalf("failure creating NumeralSystem to generate strings from ints: %v", err.Error())
+	}
+
+}
+
+// getSecrets retrieves sensitive environment variables from GCP Secret Manager
+// and sets them in the runtime environment.
+func getSecrets() {
+	log.Println("Getting secrets from GCP Secret Manager")
+	ctx := context.Background()
+	client, err := secretmanager.NewClient(ctx)
+	if err != nil {
+		log.Fatalf("failed to create secretmanager client: %v", err)
+	}
+
+	result, err := client.AccessSecretVersion(ctx, &secretmanagerpb.AccessSecretVersionRequest{
+		Name: os.Getenv("REDIS_PASSWORD_RESOURCE_ID"),
+	})
+	if err != nil {
+		log.Fatalf("failed to access REDIS_PASSWORD_RESOURCE_ID version: %v", err)
+	}
+
+	redisPassword := result.Payload.Data
+
+	os.Setenv("REDIS_PASSWORD", string(redisPassword))
+
+	result, err = client.AccessSecretVersion(ctx, &secretmanagerpb.AccessSecretVersionRequest{
+		Name: os.Getenv("API_KEY_RESOURCE_ID"),
+	})
+
+	if err != nil {
+		log.Fatalf("failed to access API_KEY_RESOURCE_ID version: %v", err)
+	}
+
+	apiKey := result.Payload.Data
+
+	os.Setenv("API_KEY", string(apiKey))
+	log.Println("Secrets loaded successfully")
+}
+
 // loadEnv loads environment variables from a .env file if the application is not running on
 // Google App Engine.
 func loadEnv() {
 	if os.Getenv("GAE_APPLICATION") != "" {
 		log.Println("Running on Google App Engine, environment variables are already set.")
-		// TODO: load secrets from GCP Secret Manager
-		ctx := context.Background()
-		client, err := secretmanager.NewClient(ctx)
-		if err != nil {
-			log.Fatalf("failed to create secretmanager client: %v", err)
-		}
-		// Build the request. Secret name: "projects/811075979077/secrets/redirectory-redis-password/versions/1"
-		req := &secretmanagerpb.AccessSecretVersionRequest{
-			Name: "projects/811075979077/secrets/redirectory-redis-password/versions/1",
-		}
-
-		// Call the API.
-		result, err := client.AccessSecretVersion(ctx, req)
-		if err != nil {
-			log.Fatalf("failed to access secret version: %v", err)
-		}
-		// let's print the secret
-		secret := result.Payload.Data
-		fmt.Printf("The secret is: %s\n", secret)
-		// let's set the environment variable
-		os.Setenv("REDIS_PASSWORD", string(secret))
-
-
+		getSecrets()
 	} else {
 		if godotenv.Load() != nil {
 			log.Fatal("Error loading .env file")
 		}
 	}
-	ALLOWED_CHARS = os.Getenv("ALLOWED_CHARS")
-	var err error
-	RANDOM_SIZE, err = strconv.Atoi(os.Getenv("DEFAULT_RANDOM_STRING_SIZE"))
-	if err != nil {
-		log.Fatalf("failure loading DEFAULT_RANDOM_STRING_SIZE environment variable")
-	}
-	if intToString == nil {
-		var err error
-		intToString, err = uint_to_any_base.NewNumeralSystem(uint32(len(ALLOWED_CHARS)), ALLOWED_CHARS, uint32(RANDOM_SIZE))
-		if err != nil {
-			log.Fatalf("failure creating NumeralSystem to generate strings from ints: %v", err.Error())
-		}
-	}
+	setConstants()
 }
 
 // simpleErrorJSONReply is a higher-order function that returns a function
@@ -221,9 +234,9 @@ func SetRandomRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 	reply := func(status int, err interface{}, redirectPath string, duration uint) {
 		w.WriteHeader(status)
 		resp, _ := json.Marshal(struct {
-			Error interface{} `json:"error"`
-			Path  string      `json:"path"`
-			Duration uint   `json:"duration"`
+			Error    interface{} `json:"error"`
+			Path     string      `json:"path"`
+			Duration uint        `json:"duration"`
 		}{err, redirectPath, duration})
 		w.Write(resp)
 	}
@@ -288,7 +301,7 @@ func SetRandomRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 // readJSONIntoBuffer reads JSON data from the request body into a buffer (prior to unmarshalling it).
 // It checks if the appropriate headers are set and if the content length is valid.
 // If any of the checks fail, it returns an error along with a nil buffer and sizeRead of 0.
-// Otherwise, it reads the JSON data into the buffer and returns the buffer and the number of 
+// Otherwise, it reads the JSON data into the buffer and returns the buffer and the number of
 // bytes read.
 func readJSONIntoBuffer(r *http.Request) (error, []byte, int) {
 	if !strings.Contains(r.Header.Get("content-type"), "application/json") {
