@@ -23,25 +23,59 @@ import (
 	"github.com/luizcdc/redirectory/redirector/uint_to_any_base"
 )
 
+
 var intToString *uint_to_any_base.NumeralSystem
 var ALLOWED_CHARS string
 var RANDOM_SIZE int
+var PROJECT_NUMBER int
+var APPLICATION_JSON = "application/json"
 
-// setConstants sets the global constants from the environment variables.
-func setConstants() {
-	ALLOWED_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	RANDOM_SIZE = 5
-	var err error
+// initConstants sets the global constants from the environment variables.
+func initConstants() {
+	ALLOWED_CHARS = os.Getenv("ALLOWED_CHARS")
+	intRandomChars, err := strconv.Atoi(os.Getenv("DEFAULT_RANDOM_STRING_SIZE"))
+	if err != nil {
+		log.Fatalf("failure reading RANDOM_SIZE into an int constant: %v", err.Error())
+	}
+	RANDOM_SIZE = intRandomChars
 	intToString, err = uint_to_any_base.NewNumeralSystem(uint32(len(ALLOWED_CHARS)), ALLOWED_CHARS, uint32(RANDOM_SIZE))
 	if err != nil {
 		log.Fatalf("failure creating NumeralSystem to generate strings from ints: %v", err.Error())
 	}
+}
 
+// getProjectNumber retrieves the project number from the environment variables or from the metadata server.
+func getProjectNumber() {
+	if os.Getenv("PROJECT_NUMBER") == "" {
+
+		req, _ := http.NewRequest(
+			"GET",
+			"http://metadata.google.internal/computeMetadata/v1/project/numeric-project-id",
+			nil,
+		)
+		req.Header.Add("Metadata-Flavor", "Google")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Fatalf("failure getting project number from metadata server: %v", err.Error())
+		}
+		defer resp.Body.Close()
+		body := make([]byte, 100)
+		n, err := resp.Body.Read(body)
+		if err != nil {
+			log.Fatalf("failure reading project number from metadata server: %v", err.Error())
+		}
+		os.Setenv("PROJECT_NUMBER", string(body[:n]))
+		if err != nil {
+			log.Fatalf("failure converting project number to int: %v", err.Error())
+		}
+	}
+	PROJECT_NUMBER, _ = strconv.Atoi(os.Getenv("PROJECT_NUMBER"))
 }
 
 // getSecrets retrieves sensitive environment variables from GCP Secret Manager
 // and sets them in the runtime environment.
 func getSecrets() {
+	getProjectNumber()
 	log.Println("Getting secrets from GCP Secret Manager")
 	ctx := context.Background()
 	client, err := secretmanager.NewClient(ctx)
@@ -77,18 +111,18 @@ func getSecrets() {
 // loadEnv loads environment variables from a .env file if the application is not running on
 // Google App Engine.
 func loadEnv() {
-	if os.Getenv("GAE_APPLICATION") != "" {
-		log.Println("Running on Google App Engine, environment variables are already set.")
-		getSecrets()
-	} else {
+	if os.Getenv("GAE_APPLICATION") == "" {
 		if godotenv.Load() != nil {
 			log.Fatal("Error loading .env file")
 		}
+	} else {
+		log.Println("Running on Google App Engine, environment variables are already set.")
+		getSecrets()
 	}
-	setConstants()
+	initConstants()
 }
 
-// simpleErrorJSONReply is a higher-order function that returns a function
+// setErrorJSONReply is a higher-order function that returns a function
 // responsible for sending a JSON response with the specified status code
 // and error message in the "error" field.
 //
@@ -103,14 +137,28 @@ func loadEnv() {
 //
 // Example usage:
 //
-//	errorHandler := simpleErrorJSONReply(w)
+//	errorHandler := setErrorJSONReply(w)
 //	errorHandler(http.StatusInternalServerError, "Internal Server Error because...")
-func simpleErrorJSONReply(w http.ResponseWriter) func(int, interface{}) {
-	return func(status int, err interface{}) {
+func setErrorJSONReply(w http.ResponseWriter) func(int, string) {
+	return func(status int, err string) {
 		w.WriteHeader(status)
 		resp, _ := json.Marshal(struct {
-			Error interface{} `json:"error"`
-		}{err})
+			Error    string `json:"error"`
+			Path     string `json:"path"`
+			Duration uint   `json:"duration"`
+		}{err, "", 0})
+		w.Write(resp)
+	}
+}
+
+func setSuccessJSONReply(w http.ResponseWriter) func(string, uint) {
+	return func(path string, duration uint) {
+		w.WriteHeader(http.StatusOK)
+		resp, _ := json.Marshal(struct {
+			Error    interface{} `json:"error"`
+			Path     string      `json:"path"`
+			Duration uint        `json:"duration"`
+		}{nil, path, duration})
 		w.Write(resp)
 	}
 }
@@ -128,9 +176,11 @@ func simpleErrorJSONReply(w http.ResponseWriter) func(int, interface{}) {
 // The function returns a JSON response indicating the success or failure of setting the redirect.
 // If the redirect is set successfully, the response will be:
 //
-//	{
-//	  "error": null
-//	}
+//		{
+//		  "error": null,
+//	   "path": "path"
+//	   "duration": 10
+//		}
 //
 // If there is an error in setting the redirect, the response will be:
 //
@@ -143,51 +193,38 @@ func SetSpecificRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.P
 		Duration uint   `json:"duration"`
 	}
 
-	reply := simpleErrorJSONReply(w)
+	replyError := setErrorJSONReply(w)
+	replySuccess := setSuccessJSONReply(w)
 
-	w.Header().Add("Content-Type", "application/json")
+	w.Header().Add("Content-Type", APPLICATION_JSON)
 	// TODO: use readJSONIntoBuffer here
-	switch {
-	case len(ps.ByName("path")) < 4:
-		reply(http.StatusBadRequest, "path must be at least 4 characters long")
-		return
-	case !strings.Contains(r.Header.Get("content-type"), "application/json"):
-		reply(http.StatusBadRequest, "Content-Type must be 'application/json'")
-		return
-	}
-
-	length, err := strconv.Atoi(r.Header.Get("content-length"))
-	if err != nil {
-		log.Println(err.Error())
-		reply(http.StatusBadRequest, "Content-Length header is required")
+	if len(ps.ByName("path")) < 4 {
+		replyError(http.StatusBadRequest, "path must be at least 4 characters long")
 		return
 	}
 	from := ps.ByName("path")
 
-	buffer := make([]byte, min(length, int(math.Pow(2, 16))))
-	sizeRead, err := r.Body.Read(buffer)
-	if err != nil && err != io.EOF {
+	buffer, sizeRead, err := readJSONIntoBuffer(r, replyError)
+	if err != nil {
 		log.Println(err.Error())
-		reply(http.StatusInternalServerError, fmt.Sprintf("error reading the request's body: %v", err.Error()))
 		return
 	}
-	var jsonBody setRedirectBody
 
+	var jsonBody setRedirectBody
 	if err := json.Unmarshal(buffer[:sizeRead], &jsonBody); err != nil {
 		log.Println(err)
-		reply(http.StatusBadRequest, fmt.Sprintf("error parsing json in the request's body: %v", err.Error()))
+		replyError(http.StatusBadRequest, fmt.Sprintf("error parsing json in the request's body: %v", err.Error()))
 		return
 	}
-	log.Println(from, jsonBody.Url, jsonBody.Duration)
 	parsedUrl, err := url.Parse(jsonBody.Url)
 	switch {
 	case err != nil:
 		log.Println(err)
-		reply(http.StatusBadRequest, fmt.Sprintf("the provided url is invalid: %v", err.Error()))
+		replyError(http.StatusBadRequest, fmt.Sprintf("the provided url is invalid: %v", err.Error()))
 		return
 	case !parsedUrl.IsAbs():
 		log.Println(err)
-		reply(http.StatusBadRequest, "the provided url must be absolute")
+		replyError(http.StatusBadRequest, "the provided url must be absolute")
 		return
 	}
 
@@ -197,12 +234,12 @@ func SetSpecificRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.P
 	}
 
 	if records.SetKey(from, parsedUrl.String(), time.Duration(duration)*time.Second) {
-		log.Printf("Success setting '%v' to '%v'\n", from, parsedUrl.String())
-		reply(http.StatusOK, nil)
+		log.Printf("Success setting '%v' to '%v', for '%v' seconds\n", from, parsedUrl.String(), duration)
+		replySuccess(from, uint(duration))
 		return
 	}
 
-	reply(http.StatusInternalServerError, fmt.Sprintf("failure setting '%v' to '%v'", from, parsedUrl.String()))
+	replyError(http.StatusInternalServerError, fmt.Sprintf("failure setting '%v' to '%v'", from, parsedUrl.String()))
 	log.Printf("Failure setting '%v' to '%v'\n", from, parsedUrl.String())
 
 }
@@ -231,27 +268,19 @@ func SetRandomRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 		Duration uint   `json:"duration"`
 	}
 
-	reply := func(status int, err interface{}, redirectPath string, duration uint) {
-		w.WriteHeader(status)
-		resp, _ := json.Marshal(struct {
-			Error    interface{} `json:"error"`
-			Path     string      `json:"path"`
-			Duration uint        `json:"duration"`
-		}{err, redirectPath, duration})
-		w.Write(resp)
-	}
+	replyError := setErrorJSONReply(w)
+	replySuccess := setSuccessJSONReply(w)
 
-	w.Header().Add("Content-Type", "application/json")
-	err, buffer, sizeRead := readJSONIntoBuffer(r)
+	w.Header().Add("Content-Type", APPLICATION_JSON)
+	buffer, sizeRead, err := readJSONIntoBuffer(r, replyError)
 	if err != nil {
-		reply(http.StatusBadRequest, err.Error(), "", 0)
 		log.Println(err)
 		return
 	}
 
 	var jsonBody setRandomRedirectBody
 	if err := json.Unmarshal(buffer[:sizeRead], &jsonBody); err != nil {
-		reply(http.StatusBadRequest, err.Error(), "", 0)
+		replyError(http.StatusBadRequest, err.Error())
 		log.Println(err)
 		return
 	}
@@ -259,22 +288,23 @@ func SetRandomRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 	parsedUrl, err := url.Parse(jsonBody.Url)
 	switch {
 	case err != nil:
-		reply(http.StatusBadRequest, err.Error(), "", 0)
+		replyError(http.StatusBadRequest, err.Error())
 		log.Println(err)
 		return
 	case !parsedUrl.IsAbs():
-		reply(http.StatusBadRequest, "the provided url must be absolute", "", 0)
+		replyError(http.StatusBadRequest, "the provided url must be absolute")
 		return
 	}
 
 	nPossibilities := int32(math.Pow(float64(len(ALLOWED_CHARS)), float64(RANDOM_SIZE)))
+	fmt.Println(RANDOM_SIZE, nPossibilities, len(ALLOWED_CHARS))
 
 	var chosen string
 	for {
 		var err error
 		chosen, err = intToString.IntegerToString(uint32(rand.Int31n(nPossibilities)))
 		if err != nil {
-			reply(http.StatusInternalServerError, err.Error(), "", 0)
+			replyError(http.StatusInternalServerError, err.Error())
 			return
 		}
 		if _, err := records.GetString(chosen); err != nil {
@@ -288,31 +318,35 @@ func SetRandomRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 	}
 
 	if records.SetKey(chosen, parsedUrl.String(), time.Duration(duration)*time.Second) {
-		reply(http.StatusOK, nil, chosen, duration)
+		replySuccess(chosen, duration)
 		log.Printf("Success setting '%v' to '%v'\n", chosen, parsedUrl.String())
 		return
 	}
 
-	reply(http.StatusInternalServerError, fmt.Sprintf("failure setting '%v' to '%v'", chosen, parsedUrl.String()), "", 0)
+	replyError(http.StatusInternalServerError, fmt.Sprintf("failure setting '%v' to '%v'", chosen, parsedUrl.String()))
 	log.Printf("Failure setting '%v' to '%v'\n", chosen, parsedUrl.String())
 
 }
 
 // readJSONIntoBuffer reads JSON data from the request body into a buffer (prior to unmarshalling it).
 // It checks if the appropriate headers are set and if the content length is valid.
-// If any of the checks fail, it returns an error along with a nil buffer and sizeRead of 0.
+// If any of the checks fail, it replies to the request with an error and returns the error,
+// a nil buffer, and 0 bytes read.
 // Otherwise, it reads the JSON data into the buffer and returns the buffer and the number of
 // bytes read.
-func readJSONIntoBuffer(r *http.Request) (error, []byte, int) {
-	if !strings.Contains(r.Header.Get("content-type"), "application/json") {
-		return fmt.Errorf("Content-Type must be 'application/json'"), nil, 0
+func readJSONIntoBuffer(r *http.Request, replyError func(int, string)) ([]byte, int, error) {
+	if !strings.Contains(r.Header.Get("content-type"), APPLICATION_JSON) {
+		err := fmt.Errorf("Content-Type must be 'application/json'")
+		replyError(http.StatusBadRequest, err.Error())
+		return nil, 0, err
 	}
 
 	length, err := strconv.Atoi(r.Header.Get("content-length"))
 	if err != nil {
 		log.Println(err.Error())
-
-		return fmt.Errorf("Content-Length header is required"), nil, 0
+		err := fmt.Errorf("Content-Length header is required and must be valid")
+		replyError(http.StatusBadRequest, err.Error())
+		return nil, 0, err
 	}
 
 	buffer := make([]byte, min(length, int(math.Pow(2, 16))))
@@ -321,24 +355,25 @@ func readJSONIntoBuffer(r *http.Request) (error, []byte, int) {
 		err = nil
 	}
 	if err != nil {
-
 		log.Println(err.Error())
-		return err, nil, 0
+		err := fmt.Errorf("error reading the request's body: %v", err.Error())
+		replyError(http.StatusInternalServerError, err.Error())
+		return nil, 0, err
 	}
-	return err, buffer, sizeRead
+	return buffer, sizeRead, err
 }
 
 // Redirect serves the redirect request for a previously set redirect path.
 func Redirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	key := ps.ByName("redirectpath")[1:]
-	redirecto, err := records.GetString(key)
+	redirectTo, err := records.GetString(key)
 	if err != nil {
 		log.Printf("Error: no redirect for key '%v'\n", key)
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(fmt.Sprintf("<h1>Error %v: URL not found!</h1>", http.StatusNotFound)))
 		return
 	}
-	w.Header().Set("Location", redirecto)
+	w.Header().Set("Location", redirectTo)
 	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
