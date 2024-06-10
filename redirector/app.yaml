@@ -5,7 +5,7 @@ instance_class: F1
 env_variables:
     INTERNAL_CACHE_EXPIRE_SECONDS: "300"
     RUNNING_ENV: "PROD"
-    ALLOWED_CHARS: "abcdefghijklmnopqrstuvwxyz0123456789-_"
+    ALLOWED_CHARS: "abcdefghijklmnopqrstuvwxyz0123456789"
     DEFAULT_RANDOM_STRING_SIZE: 4
     DEFAULT_DURATION: 2592000 # 30 days
     REDIS_HOST: "10.142.0.2"
