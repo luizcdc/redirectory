@@ -23,11 +23,24 @@ import (
 	"github.com/luizcdc/redirectory/redirector/uint_to_any_base"
 )
 
+type Auth struct {
+	handler httprouter.Router
+}
+
+func (a *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if API_KEY != "" && r.Header.Get("Authorization") != fmt.Sprintf("Bearer %s", API_KEY) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	a.handler.ServeHTTP(w, r)
+}
+
 var intToString *uint_to_any_base.NumeralSystem
 var ALLOWED_CHARS string
 var RANDOM_SIZE int
 var PROJECT_NUMBER int
 var APPLICATION_JSON = "application/json"
+var API_KEY string
 
 // initConstants sets the global constants from the environment variables.
 func initConstants() {
@@ -41,6 +54,8 @@ func initConstants() {
 	if err != nil {
 		log.Fatalf("failure creating NumeralSystem to generate strings from ints: %v", err.Error())
 	}
+
+	API_KEY = os.Getenv("API_KEY")
 }
 
 // getProjectNumber retrieves the project number from the environment variables or from the metadata server.
@@ -394,5 +409,6 @@ func main() {
 	router.POST("/set", SetRandomRedirect)
 	router.GET("/*redirectpath", Redirect)
 	log.Println("Server running on port 8080")
-	log.Fatal(http.ListenAndServe(":8080", router))
+	auth := &Auth{*router}
+	log.Fatal(http.ListenAndServe(":8080", auth))
 }
