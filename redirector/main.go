@@ -23,7 +23,6 @@ import (
 	"github.com/luizcdc/redirectory/redirector/uint_to_any_base"
 )
 
-
 var intToString *uint_to_any_base.NumeralSystem
 var ALLOWED_CHARS string
 var RANDOM_SIZE int
@@ -61,15 +60,16 @@ func getProjectNumber() {
 		defer resp.Body.Close()
 		body := make([]byte, 100)
 		n, err := resp.Body.Read(body)
-		if err != nil {
+		if err != nil && err != io.EOF {
 			log.Fatalf("failure reading project number from metadata server: %v", err.Error())
 		}
 		os.Setenv("PROJECT_NUMBER", string(body[:n]))
-		if err != nil {
-			log.Fatalf("failure converting project number to int: %v", err.Error())
-		}
 	}
-	PROJECT_NUMBER, _ = strconv.Atoi(os.Getenv("PROJECT_NUMBER"))
+	var err error
+	PROJECT_NUMBER, err = strconv.Atoi(os.Getenv("PROJECT_NUMBER"))
+	if err != nil {
+		log.Fatalf("failure converting project number to int: %v", err.Error())
+	}
 }
 
 // getSecrets retrieves sensitive environment variables from GCP Secret Manager
@@ -87,24 +87,33 @@ func getSecrets() {
 		Name: os.Getenv("REDIS_PASSWORD_RESOURCE_ID"),
 	})
 	if err != nil {
-		log.Fatalf("failed to access REDIS_PASSWORD_RESOURCE_ID version: %v", err)
+		log.Fatalf("failed to access REDIS_PASSWORD_RESOURCE_ID: %v", err)
 	}
 
-	redisPassword := result.Payload.Data
-
-	os.Setenv("REDIS_PASSWORD", string(redisPassword))
+	os.Setenv("REDIS_PASSWORD", string(result.Payload.Data))
 
 	result, err = client.AccessSecretVersion(ctx, &secretmanagerpb.AccessSecretVersionRequest{
 		Name: os.Getenv("API_KEY_RESOURCE_ID"),
 	})
 
 	if err != nil {
-		log.Fatalf("failed to access API_KEY_RESOURCE_ID version: %v", err)
+		log.Fatalf("failed to access API_KEY_RESOURCE_ID: %v", err)
 	}
 
 	apiKey := result.Payload.Data
 
 	os.Setenv("API_KEY", string(apiKey))
+
+	result, err = client.AccessSecretVersion(ctx, &secretmanagerpb.AccessSecretVersionRequest{
+		Name: os.Getenv("REDIS_HOST_RESOURCE_ID"),
+	})
+
+	if err != nil {
+		log.Fatalf("failed to access REDIS_HOST_RESOURCE_ID: %v", err)
+	}
+
+	os.Setenv("REDIS_HOST", string(result.Payload.Data))
+
 	log.Println("Secrets loaded successfully")
 }
 
@@ -120,6 +129,7 @@ func loadEnv() {
 		getSecrets()
 	}
 	initConstants()
+	log.Println("Environment variables loaded successfully")
 }
 
 // setErrorJSONReply is a higher-order function that returns a function
@@ -197,7 +207,7 @@ func SetSpecificRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.P
 	replySuccess := setSuccessJSONReply(w)
 
 	w.Header().Add("Content-Type", APPLICATION_JSON)
-	// TODO: use readJSONIntoBuffer here
+
 	if len(ps.ByName("path")) < 4 {
 		replyError(http.StatusBadRequest, "path must be at least 4 characters long")
 		return
@@ -297,7 +307,6 @@ func SetRandomRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 	}
 
 	nPossibilities := int32(math.Pow(float64(len(ALLOWED_CHARS)), float64(RANDOM_SIZE)))
-	fmt.Println(RANDOM_SIZE, nPossibilities, len(ALLOWED_CHARS))
 
 	var chosen string
 	for {
@@ -384,5 +393,6 @@ func main() {
 	router.POST("/set/:path", SetSpecificRedirect)
 	router.POST("/set", SetRandomRedirect)
 	router.GET("/*redirectpath", Redirect)
+	log.Println("Server running on port 8080")
 	log.Fatal(http.ListenAndServe(":8080", router))
 }

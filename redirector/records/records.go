@@ -37,13 +37,16 @@ func MakeCache(cap uint) {
 func SetKey(key string, value interface{}, ttl time.Duration) bool {
 	client, err := redis_client.GetClientInstance()
 	if err != nil {
+		log.Println("Error getting Redis client instance." + err.Error())
 		return false
 	}
-	success := client.Set(context.TODO(), AddPrefix(key), value, ttl).Err() == nil
-	if success {
+	err = client.Set(context.TODO(), AddPrefix(key), value, ttl).Err()
+	if err == nil {
 		cache.Insert(key, value)
+	}else{
+		log.Println("Error setting key in Redis." + err.Error())
 	}
-	return success
+	return err == nil
 }
 
 // AddPrefix adds a prefix to a key to separate keys from different environments.
