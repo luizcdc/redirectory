@@ -38,26 +38,33 @@ func (a *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 var intToString *uint_to_any_base.NumeralSystem
-var ALLOWED_CHARS string
-var RANDOM_SIZE int
-var PROJECT_NUMBER int
+var ALLOWED_CHARS, API_KEY string
+var RANDOM_SIZE, PROJECT_NUMBER int
+var DEFAULT_DURATION uint
 var APPLICATION_JSON = "application/json"
-var API_KEY string
 
 // initConstants sets the global constants from the environment variables.
 func initConstants() {
 	ALLOWED_CHARS = os.Getenv("ALLOWED_CHARS")
+
 	intRandomChars, err := strconv.Atoi(os.Getenv("DEFAULT_RANDOM_STRING_SIZE"))
 	if err != nil {
 		log.Fatalf("failure reading RANDOM_SIZE into an int constant: %v", err.Error())
 	}
 	RANDOM_SIZE = intRandomChars
+
 	intToString, err = uint_to_any_base.NewNumeralSystem(uint32(len(ALLOWED_CHARS)), ALLOWED_CHARS, uint32(RANDOM_SIZE))
 	if err != nil {
 		log.Fatalf("failure creating NumeralSystem to generate strings from ints: %v", err.Error())
 	}
 
 	API_KEY = os.Getenv("API_KEY")
+
+	duration, err := strconv.Atoi(os.Getenv("DEFAULT_DURATION"))
+	if err != nil {
+		log.Fatalf("failure reading DEFAULT_DURATION into an int constant: %v", err.Error())
+	}
+	DEFAULT_DURATION = uint(duration)
 }
 
 // getProjectNumber retrieves the project number from the environment variables or from the metadata server.
@@ -272,14 +279,14 @@ func SetSpecificRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.P
 		return
 	}
 
-	duration := 60
+	duration := DEFAULT_DURATION
 	if jsonBody.Duration != 0 {
-		duration = int(jsonBody.Duration)
+		duration = jsonBody.Duration
 	}
 
 	if records.SetKey(from, parsedUrl.String(), time.Duration(duration)*time.Second) {
 		log.Printf("Success setting '%v' to '%v', for '%v' seconds\n", from, parsedUrl.String(), duration)
-		replySuccess(from, uint(duration))
+		replySuccess(from, duration)
 		return
 	}
 
@@ -355,7 +362,7 @@ func SetRandomRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 		}
 	}
 
-	duration := uint(60)
+	duration := DEFAULT_DURATION
 	if jsonBody.Duration != 0 {
 		duration = jsonBody.Duration
 	}
