@@ -404,7 +404,32 @@ func Redirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 }
 
 func DelRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	// TODO: implement
+	delErrorJSONReply := func(status int, err string) {
+		w.WriteHeader(status)
+		resp, _ := json.Marshal(struct {
+			Error interface{} `json:"error"`
+		}{err})
+		w.Write(resp)
+	}
+	if len(ps.ByName("path")) == 0 {
+		replyError := setErrorJSONReply(w)
+		replyError(http.StatusBadRequest, "no redirect to delete was specified")
+		return
+	}
+	path := ps.ByName("path")
+	deleted, err := records.DelKey(path)
+	if deleted {
+		w.WriteHeader(http.StatusOK)
+		resp, _ := json.Marshal(struct {
+			Error interface{} `json:"error"`
+		}{nil})
+		w.Write(resp)
+	} else if err == nil {
+		delErrorJSONReply(http.StatusNotFound, fmt.Sprintf("no redirect found for path '%v'", path))
+	} else {
+		delErrorJSONReply(http.StatusInternalServerError, fmt.Sprintf("error deleting redirect for path '%v': %v", path, err.Error()))
+	}
+
 }
 
 func main() {
@@ -423,8 +448,6 @@ func main() {
 	router.Handler(http.MethodPost, "/del/:path", auth)
 	router.Handler(http.MethodPost, "/del", auth)
 
-	// router.POST("/set/:path", SetSpecificRedirect)
-	// router.POST("/set", SetRandomRedirect)
 	router.GET("/*redirectpath", Redirect)
 	log.Println("Server running on port 8080")
 

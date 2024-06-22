@@ -43,10 +43,27 @@ func SetKey(key string, value interface{}, ttl time.Duration) bool {
 	err = client.Set(context.TODO(), AddPrefix(key), value, ttl).Err()
 	if err == nil {
 		cache.Insert(key, value)
-	}else{
-		log.Println("Error setting key in Redis." + err.Error())
+	} else {
+		log.Println("Error setting key in Redis. " + err.Error())
 	}
 	return err == nil
+}
+
+func DelKey(key string) (bool, error) {
+	client, err := redis_client.GetClientInstance()
+	if err != nil {
+		log.Println("Error getting Redis client instance. " + err.Error())
+		return false, err
+	}
+	numRemoved, err := client.Del(context.TODO(), AddPrefix(key)).Result()
+	if err == nil {
+		if numRemoved > 0 {
+			cache.Remove(key)
+		}
+	} else {
+		log.Println("Error deleting key in Redis. " + err.Error())
+	}
+	return numRemoved > 0, err
 }
 
 // AddPrefix adds a prefix to a key to separate keys from different environments.
