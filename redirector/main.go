@@ -454,17 +454,15 @@ func main() {
 	loadEnv()
 	// records.MakeCache(5)
 	requireAuthRouter := httprouter.New()
-	requireAuthRouter.POST("/del/:path", DelRedirect)
-	requireAuthRouter.POST("/del", DelRedirect)
 	requireAuthRouter.POST("/set/:path", SetSpecificRedirect)
 	requireAuthRouter.POST("/set", SetRandomRedirect)
+	requireAuthRouter.DELETE("/del/:path", DelRedirect)
 	auth := &Auth{*requireAuthRouter}
 
 	router := httprouter.New()
 	router.Handler(http.MethodPost, "/set/:path", auth)
 	router.Handler(http.MethodPost, "/set", auth)
-	router.Handler(http.MethodPost, "/del/:path", auth)
-	router.Handler(http.MethodPost, "/del", auth)
+	router.Handler(http.MethodDelete, "/del/:path", auth)
 
 	router.GET("/*redirectpath", Redirect)
 	log.Println("Server running on port 8080")
