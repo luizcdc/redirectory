@@ -178,6 +178,23 @@ func setErrorJSONReply(w http.ResponseWriter) func(int, string) {
 	}
 }
 
+// setSuccessJSONReply is a higher-order function that returns a function
+// responsible for sending a JSON response with the specified status code
+// and success message.
+//
+// Parameters:
+//   - w: The http.ResponseWriter that will write the response.
+//
+// Returns:
+//
+//	A function (path string, duration uint) that sends a JSON response with the specified
+//
+// path and duration in the "path" and "duration" fields, respectively.
+//
+// Example usage:
+//
+//	successHandler := setSuccessJSONReply(w)
+//	successHandler("path", 10)
 func setSuccessJSONReply(w http.ResponseWriter) func(string, uint) {
 	return func(path string, duration uint) {
 		w.WriteHeader(http.StatusOK)
@@ -403,6 +420,7 @@ func Redirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
+// DelRedirect deletes the redirect for a given path.
 func DelRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	delErrorJSONReply := func(status int, err string) {
 		w.WriteHeader(status)

@@ -49,6 +49,8 @@ func SetKey(key string, value interface{}, ttl time.Duration) bool {
 	return err == nil
 }
 
+// DelKey deletes a key, returning true and nil if the key existed and was successfully deleted,
+// or false and an error if not.
 func DelKey(key string) (bool, error) {
 	client, err := redis_client.GetClientInstance()
 	if err != nil {
@@ -105,6 +107,7 @@ func GetAllKeys() ([]string, error) {
 	return keys, err
 }
 
+// clearRedis clears all keys from the Redis database.
 func clearRedis() {
 	client, err := redis_client.GetClientInstance()
 	if err != nil {
