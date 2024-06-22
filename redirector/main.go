@@ -27,6 +27,8 @@ type Auth struct {
 	handler httprouter.Router
 }
 
+// ServeHTTP is implements the http.Handler interface for the Auth struct, checking the
+// Authorization header for the API_KEY before serving the request.
 func (a *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if API_KEY != "" && r.Header.Get("Authorization") != fmt.Sprintf("Bearer %s", API_KEY) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -401,14 +403,30 @@ func Redirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
+func DelRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	// TODO: implement
+}
+
 func main() {
 	loadEnv()
 	// records.MakeCache(5)
+	requireAuthRouter := httprouter.New()
+	requireAuthRouter.POST("/del/:path", DelRedirect)
+	requireAuthRouter.POST("/del", DelRedirect)
+	requireAuthRouter.POST("/set/:path", SetSpecificRedirect)
+	requireAuthRouter.POST("/set", SetRandomRedirect)
+	auth := &Auth{*requireAuthRouter}
+
 	router := httprouter.New()
-	router.POST("/set/:path", SetSpecificRedirect)
-	router.POST("/set", SetRandomRedirect)
+	router.Handler(http.MethodPost, "/set/:path", auth)
+	router.Handler(http.MethodPost, "/set", auth)
+	router.Handler(http.MethodPost, "/del/:path", auth)
+	router.Handler(http.MethodPost, "/del", auth)
+
+	// router.POST("/set/:path", SetSpecificRedirect)
+	// router.POST("/set", SetRandomRedirect)
 	router.GET("/*redirectpath", Redirect)
 	log.Println("Server running on port 8080")
-	auth := &Auth{*router}
-	log.Fatal(http.ListenAndServe(":8080", auth))
+
+	log.Fatal(http.ListenAndServe(":8080", router))
 }
