@@ -1,0 +1,24 @@
+{# Boilerplate html: #}
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔀</text></svg>">
+    <title>Redirectory: the simplest way to get short URLs!</title>
+</head>
+<body>
+    <div style="align-text: center; display: block; columns: 1">
+        <img src="{% static 'logo_and_text.png' %}" alt="Redirectory" style="display: block; margin-left: auto; margin-right: auto; width: 20%;">
+        <div id="content" style="display:grid; justify-content: center; margin:auto; text-align: center">
+            <p>The simplest way to get short URLs!</p>
+            <p>Just paste your long URL below and click "Shorten" to get a short URL!</p>
+            <form method="post" action="/shorten/">
+                {% csrf_token %}
+                <input type="text" name="url" placeholder="Paste your long URL here" required>
+                <input type="submit" value="Shorten">
+            </form>
+        </div>
+
+    </div>
+</body>
+</html>
