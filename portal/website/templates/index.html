@@ -1,24 +1,122 @@
-{# Boilerplate html: #}
 {% load static %}
-<!DOCTYPE html>
-<html>
+<html lang="en-us">
 <head>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔀</text></svg>">
+    <style>
+        header {
+            text-align: center;
+        }
+
+        #header-logo {
+            padding: 20px 20px 25px;
+        }
+
+        #logo-image {
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            width: 250px;
+        }
+
+        body {
+            font-family: "Cascadia Mono", sans-serif;
+            background: #bccacd;
+        }
+
+        .rectangular-container {
+            display: grid;
+            justify-content: center;
+            margin: auto;
+            text-align: center;
+            background: #a2afb1;
+            border-radius: 25px;
+            padding: 5px 100px 5px;
+            box-shadow: gray 2px 4px 7px;
+        }
+
+        input {
+            display: table-cell;
+            width: 100%;
+            height: 56px;
+            padding: 10px 16px;
+            font: 17px lato, arial;
+            color: #000;
+            background: #fff;
+            border: 1px solid #bbb;
+            border-right: 0;
+            border-radius: 3px;
+            border-bottom-right-radius: 0;
+            border-top-right-radius: 0;
+            box-sizing: border-box;
+            border-radius: 3px;
+        }
+
+        h1 {
+            margin-block-end: 0.25em;
+        }
+
+        .darkbutton {
+            background-color: #4b5253;
+            color: white;
+            border: none;
+            font-weight: bold;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            cursor: pointer;
+            width: 25%;
+            min-width: 25%;
+        }
+
+        .darkbutton:hover {
+            background-color: #3c4142;
+            box-shadow: 0 0 15px #5f8d93;
+            width: 25%;
+            min-width: 25%;
+            padding: 15px 32px;
+        /*    slow animation*/
+            transition: width 0.8s;
+        }
+
+    </style>
+    <script>
+    function changeText(button) {
+        if (button.value === "Make it smaller!") {
+            button.value = "Shorten!";
+        }
+        else {
+            button.value = "Make it smaller!";
+        }
+    }
+    </script>
+    <style>
+    /*Hover effect for send button*/
+
+    </style>
+    <link rel="icon"
+          href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔀</text></svg>">
     <title>Redirectory: the simplest way to get short URLs!</title>
 </head>
 <body>
-    <div style="align-text: center; display: block; columns: 1">
-        <img src="{% static 'logo_and_text.png' %}" alt="Redirectory" style="display: block; margin-left: auto; margin-right: auto; width: 20%;">
-        <div id="content" style="display:grid; justify-content: center; margin:auto; text-align: center">
-            <p>The simplest way to get short URLs!</p>
-            <p>Just paste your long URL below and click "Shorten" to get a short URL!</p>
-            <form method="post" action="/shorten/">
+<header>
+    <div id="header-logo">
+        <img id="logo-image" src="{% static 'logo_and_text.png' %}" alt="Redirectory">
+    </div>
+</header>
+<div style="align-text: center; display: block; columns: 1">
+    <div id="content" style="display:grid; justify-content: center; margin:auto; text-align: center">
+        <div class="rectangular-container">
+            <h1 class="call-to-action">The simplest way to get short URLs!</h1>
+            <p>Paste your looooooong URL below and press enter to get a shorter URL.</p>
+            <form method="post" action="/shorten/" style="display: flex; margin-top: 0.67rem">
                 {% csrf_token %}
-                <input type="text" name="url" placeholder="Paste your long URL here" required>
-                <input type="submit" value="Shorten">
+                <input type="text" name="url" placeholder="Enter your URL here" required>
+                <input class="darkbutton" type="submit" value="Make it smaller!" onmouseenter="changeText(this)" onmouseleave="changeText(this)">
             </form>
         </div>
-
     </div>
+
+</div>
 </body>
 </html>
