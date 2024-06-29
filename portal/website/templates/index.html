@@ -23,12 +23,12 @@
 
         .footer {
             border-top: 0.3vh solid #4a5053;
-          margin-top: auto;
-          width: 100%;
-            height: 50px;
-          background-color: #a1aeb0;
-          color: #000000;
-          text-align: center;
+            margin-top: auto;
+            width: 100%;
+            height: 75px;
+            background-color: #a1aeb0;
+            color: #000000;
+            text-align: center;
             bottom: 0;
             left: 0;
         }
@@ -56,7 +56,7 @@
             text-align: center;
             background: #a2afb1;
             border-radius: 25px;
-            padding: 5px 100px 5px;
+            padding: 5px 100px 10px;
             box-shadow: gray 2px 4px 7px;
         }
 
@@ -133,25 +133,31 @@
 <body>
 <header>
     <div id="header-logo">
-        <img id="logo-image" src="{% static 'logo_and_text.png' %}" alt="Redirectory">
+        <a href="/">
+            <img id="logo-image" src="{% static 'logo_and_text.png' %}" alt="Redirectory">
+        </a>
     </div>
 </header>
 <main style="text-align: center; display: block; columns: 1">
     <div id="content" style="display:grid; justify-content: center; margin:auto; text-align: center">
         <div class="rectangular-container">
             <h1 class="call-to-action">The simplest way to get short URLs!</h1>
-            <p>Paste your looooooong URL below and press enter to get a shorter one that points to it.</p>
+            <p>Paste your <b>looooooong</b> URL below and get a shorter one that redirects to it.</p>
             <form method="post" action="/shorten/" style="display: flex; margin-top: 0.67rem">
                 {% csrf_token %}
                 <div class="inputwrapper">
-                <input type="url" name="url" placeholder="Enter your URL here" required>
-                <input class="darkbutton" type="submit" value="Make it smaller!" onmouseenter="changeText(this)" onmouseleave="changeText(this)">
+                    <input id="redirect-to" type="url" name="url" placeholder="Enter your URL here" required>
+                    <input class="darkbutton" type="submit" value="Make it smaller!" onmouseenter="changeText(this)" onmouseleave="changeText(this)">
                 </div>
             </form>
         </div>
     </div>
 
 </main>
-<footer class="footer" style="padding: 2vh 0 0 0">Copyright @ <a href="https://linkedin.com/in/luizcdc">Luiz Cavalcanti</a> </footer>
+<footer class="footer" style="padding: 2vh 0 1vh 0">
+    <a href=https://github.com/luizcdc/redirectory><img src="{% static 'github-mark.svg' %}"  alt="github-link" width="30" height="30"></a>
+    <br>
+    <p>Made by <a href="https://linkedin.com/in/luizcdc">Luiz Cavalcanti</a></p>
+</footer>
 </body>
 </html>
