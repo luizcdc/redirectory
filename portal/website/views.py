@@ -1,10 +1,12 @@
+from datetime import timedelta
+
 import django.core.validators
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.core.validators import URLValidator
 import httpx
-
+import humanize
 
 from django.conf import settings
 
@@ -31,8 +33,14 @@ def shorten(request):
             headers={
                 "Authorization": f"Bearer {settings.SERVICE_API_KEY}",
                 "Content-Type": "application/json",
-            }
+            },
         )
         print(response.text)
         res_json = response.json()
+        # TODO: handle errors
+        res_json["SERVICE_HOST"] = settings.SERVICE_HOST
+        res_json["duration"] = humanize.precisedelta(
+            timedelta(seconds=res_json["duration"]), minimum_unit="minutes"
+        )
+        print(res_json)
     return render(request, "success.html", context=res_json)

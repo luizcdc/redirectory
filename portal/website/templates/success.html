@@ -4,14 +4,26 @@
 <head>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔀</text></svg>">
     <title>Success! Your redirect was created at {{ path }}</title>
+    <script>
+        // redirect back after 10 seconds
+        function redirectBack() {
+            last_url = document.referrer;
+            if (last_url === "") {
+                last_url = "/";
+            }
+            window.location.href = last_url;
+        }
+        setTimeout(redirectBack, 10000);
+    </script>
 </head>
 <body>
-    <div style="align-text: center; display: block; columns: 1">
+    <div style="text-align: center; display: block; columns: 1">
         <div id="content" style="display:grid; justify-content: center; margin:auto; text-align: center">
-            <p>Success! Your redirect was created at {{ path }}</p>
-            <form>
-             <input type="button" value="Return" onclick="history.back()">
-            </form>
+            <h1>Success!</h1>
+            <p>Your redirect was created at: <a href="{{ SERVICE_HOST }}/{{ path }}">{{ SERVICE_HOST }}/{{ path }}</a> and will expire in {{ duration }}.</p>
+            <p>Thanks for using Redirectory!</p>
+            <p>Redirecting back in 10 seconds...</p>
+            <button onclick="redirectBack()">Return</button>
         </div>
 
     </div>
