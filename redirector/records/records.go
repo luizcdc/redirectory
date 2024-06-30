@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/luizcdc/redirectory/redirector/records/lru_cache"
-	"github.com/luizcdc/redirectory/redirector/records/redis_client"
+	redis_client "github.com/luizcdc/redirectory/redirector/records/redis_client_singleton"
 )
 
 var cache *lru_cache.LRUCache
@@ -33,6 +33,13 @@ func MakeCache(cap uint) {
 	}
 }
 
+// ResetCache resets the cache to its initial state, preserving the same capacity.
+func ResetCache() {
+	currCap := cache.Cap()
+	MakeCache(0)
+	MakeCache(currCap)
+}
+
 // SetKey returns a bool indicating success of the specified set operation.
 func SetKey(key string, value interface{}, ttl time.Duration) bool {
 	client, err := redis_client.GetClientInstance()
@@ -46,6 +53,7 @@ func SetKey(key string, value interface{}, ttl time.Duration) bool {
 	} else {
 		log.Println("Error setting key in Redis. " + err.Error())
 	}
+	go incrCountURLsSet()
 	return err == nil
 }
 
@@ -113,5 +121,7 @@ func clearRedis() {
 	if err != nil {
 		return
 	}
-	client.FlushAll(context.TODO())
+	go client.FlushAll(context.TODO())
+	ResetCache()
+	go clearCountURLsSet()
 }
