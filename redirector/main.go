@@ -41,7 +41,11 @@ var intToString *uint_to_any_base.NumeralSystem
 var ALLOWED_CHARS, API_KEY string
 var RANDOM_SIZE, PROJECT_NUMBER int
 var DEFAULT_DURATION uint
-var APPLICATION_JSON = "application/json"
+
+const APPLICATION_JSON = "application/json"
+const API_ROOT = "/api/"
+
+var SERVER_PORT uint16
 
 // initConstants sets the global constants from the environment variables.
 func initConstants() {
@@ -65,6 +69,12 @@ func initConstants() {
 		log.Fatalf("failure reading DEFAULT_DURATION into an int constant: %v", err.Error())
 	}
 	DEFAULT_DURATION = uint(duration)
+
+	server_port, err := strconv.Atoi(os.Getenv("SERVER_PORT"))
+	if err != nil {
+		log.Fatalf("failure reading SERVER_PORT into an int constant: %v", err.Error())
+	}
+	SERVER_PORT = uint16(server_port)
 }
 
 // getProjectNumber retrieves the project number from the environment variables or from the metadata server.
@@ -415,7 +425,8 @@ func readJSONIntoBuffer(r *http.Request, replyError func(int, string)) ([]byte, 
 
 // Redirect serves the redirect request for a previously set redirect path.
 func Redirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	key := ps.ByName("redirectpath")[1:]
+	key := ps.ByName("redirectpath")
+	key = strings.Trim(key, "/")
 	redirectTo, err := records.GetString(key)
 	if err != nil {
 		log.Printf("Error: no redirect for key '%v'\n", key)
@@ -458,22 +469,59 @@ func DelRedirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 }
 
+// GetTotalServedRedirects returns the total number of served redirects.
+// The function returns a JSON response, where the body is the total number of served redirects.
+// If there is an error in retrieving the count, the response will be 'null'.
+func GetTotalServedRedirects(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	returnCount(w, records.GetCountServedRedirects)
+}
+
+// GetTotalSetRedirects returns the total number of set redirects.
+// The function returns a JSON response, where the body is the total number of set redirects.
+// If there is an error in retrieving the count, the response will be 'null'.
+func GetTotalSetRedirects(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	returnCount(w, records.GetCountURLsSet)
+}
+
+// returnCount is a helper function that returns the value of a specified counter.
+func returnCount(w http.ResponseWriter, getCount func() (int64, error)) {
+	w.Header().Add("Content-Type", APPLICATION_JSON)
+	totalURLs, err := getCount()
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("null"))
+		return
+	}
+	w.Write([]byte(fmt.Sprint(totalURLs)))
+}
+
 func main() {
 	loadEnv()
 	// records.MakeCache(5)
-	requireAuthRouter := httprouter.New()
-	requireAuthRouter.POST("/set/:path", SetSpecificRedirect)
-	requireAuthRouter.POST("/set", SetRandomRedirect)
-	requireAuthRouter.DELETE("/del/:path", DelRedirect)
-	auth := &Auth{*requireAuthRouter}
+	AuthSubRouter := createAuthSubRouter()
 
 	router := httprouter.New()
-	router.Handler(http.MethodPost, "/set/:path", auth)
-	router.Handler(http.MethodPost, "/set", auth)
-	router.Handler(http.MethodDelete, "/del/:path", auth)
+	// This GET wildcard is necessary because of httprouter's weird "ambiguous route" behavior
+	router.Handler(http.MethodGet, "/:redirectpath/*any", AuthSubRouter)
+	router.Handler(http.MethodPost, API_ROOT+"*any", AuthSubRouter)
+	router.Handler(http.MethodDelete, API_ROOT+"*any", AuthSubRouter)
+	router.Handler(http.MethodPut, API_ROOT+"*any", AuthSubRouter)
 
-	router.GET("/*redirectpath", Redirect)
-	log.Println("Server running on port 8080")
+	router.GET("/:redirectpath", Redirect)
 
-	log.Fatal(http.ListenAndServe(":8080", router))
+	log.Printf("Server running on port %v", SERVER_PORT)
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", SERVER_PORT), router))
+}
+
+// createAuthSubRouter initializes an auth-only subrouter, setting up routes and handlers.
+func createAuthSubRouter() *Auth {
+	requireAuthRouter := httprouter.New()
+	requireAuthRouter.POST(API_ROOT+"set/:path", SetSpecificRedirect)
+	requireAuthRouter.POST(API_ROOT+"set", SetRandomRedirect)
+	requireAuthRouter.DELETE(API_ROOT+"del/:path", DelRedirect)
+	requireAuthRouter.GET(API_ROOT+"stats/urlcount", GetTotalSetRedirects)
+	requireAuthRouter.GET(API_ROOT+"stats/redirectcount", GetTotalServedRedirects)
+	AuthSubRouter := &Auth{*requireAuthRouter}
+	return AuthSubRouter
 }
