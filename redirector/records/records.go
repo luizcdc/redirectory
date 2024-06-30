@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/luizcdc/redirectory/redirector/records/lru_cache"
-	"github.com/luizcdc/redirectory/redirector/records/redis_client"
+	redis_client "github.com/luizcdc/redirectory/redirector/records/redis_client_singleton"
 )
 
 var cache *lru_cache.LRUCache
@@ -33,6 +33,12 @@ func MakeCache(cap uint) {
 	}
 }
 
+func ResetCache() {
+	currCap := cache.Cap()
+	MakeCache(0)
+	MakeCache(currCap)
+}
+
 // SetKey returns a bool indicating success of the specified set operation.
 func SetKey(key string, value interface{}, ttl time.Duration) bool {
 	client, err := redis_client.GetClientInstance()
@@ -46,6 +52,7 @@ func SetKey(key string, value interface{}, ttl time.Duration) bool {
 	} else {
 		log.Println("Error setting key in Redis. " + err.Error())
 	}
+	go incrCountURLsSet()
 	return err == nil
 }
 
@@ -113,5 +120,61 @@ func clearRedis() {
 	if err != nil {
 		return
 	}
-	client.FlushAll(context.TODO())
+	go client.FlushAll(context.TODO())
+	ResetCache()
+	go clearCountURLsSet()
+}
+
+// incrCountURLsSet increments the count of all URLs ever set.
+func incrCountURLsSet() {
+	client, err := redis_client.GetClientInstance()
+	if err != nil {
+		return
+	}
+	client.Incr(context.TODO(), AddPrefix("count_urls_set"))
+}
+
+// GetCountURLsSet retrieves the count of all URLs ever set.
+func GetCountURLsSet() (int64, error) {
+	client, err := redis_client.GetClientInstance()
+	if err != nil {
+		return 0, err
+	}
+	return client.Get(context.TODO(), AddPrefix("count_urls_set")).Int64()
+}
+
+// clearCountURLsSet clears the count of all URLs ever set.
+func clearCountURLsSet() {
+	client, err := redis_client.GetClientInstance()
+	if err != nil {
+		return
+	}
+	client.Set(context.TODO(), AddPrefix("count_urls_set"), 0, 0)
+}
+
+// IncrCountServedRedirects increments the count of all redirects ever served.
+func IncrCountServedRedirects() {
+	client, err := redis_client.GetClientInstance()
+	if err != nil {
+		return
+	}
+	client.Incr(context.TODO(), AddPrefix("count_served_redirects"))
+}
+
+// GetCountServedRedirects retrieves the count of all redirects ever served.
+func GetCountServedRedirects() (int64, error) {
+	client, err := redis_client.GetClientInstance()
+	if err != nil {
+		return 0, err
+	}
+	return client.Get(context.TODO(), AddPrefix("count_served_redirects")).Int64()
+}
+
+// clearCountServedRedirects clears the count of all redirects ever served.
+func clearCountServedRedirects() {
+	client, err := redis_client.GetClientInstance()
+	if err != nil {
+		return
+	}
+	client.Set(context.TODO(), AddPrefix("count_served_redirects"), 0, 0)
 }

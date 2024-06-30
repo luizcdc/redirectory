@@ -423,6 +423,7 @@ func Redirect(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		w.Write([]byte(fmt.Sprintf("<h1>Error %v: URL not found!</h1>", http.StatusNotFound)))
 		return
 	}
+	go records.IncrCountServedRedirects()
 	w.Header().Set("Location", redirectTo)
 	w.WriteHeader(http.StatusTemporaryRedirect)
 }

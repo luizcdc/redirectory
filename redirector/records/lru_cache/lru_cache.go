@@ -127,6 +127,16 @@ func (cache *LRUCache) Len() int {
 	return cache.len()
 }
 
+// Cap returns the capacity of the cache.
+// Time complexity: O(1)
+func (cache *LRUCache) Cap() uint {
+	if cache == nil {
+		return 0
+	}
+
+	return cache.cap
+}
+
 // contains indicates whether the key is present at the moment (without locking).
 // Time complexity: O(1)
 func (cache *LRUCache) contains(key string) bool {
