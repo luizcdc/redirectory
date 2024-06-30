@@ -1,6 +1,8 @@
 {% load static %}
 <html lang="en-us">
 <head>
+    <!--    https://icons.getbootstrap.com/-->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         header {
             margin: 0;
@@ -49,14 +51,33 @@
             background: #bccacd;
         }
 
-        .rectangular-container {
+        .large-panel {
             display: grid;
             justify-content: center;
-            margin: auto;
+            margin: auto auto 5vh;
             text-align: center;
             background: #a2afb1;
             border-radius: 25px;
             padding: 5px 100px 10px;
+            box-shadow: gray 2px 4px 7px;
+        }
+
+        .rectangular-emblem {
+            /*border-radius: 15px;*/
+            /*background: #a2afb1;*/
+            justify-content: center;
+            margin: 0 15px;
+            padding: 10px 20px;
+            color: #3C4142FF;
+            font-weight: bold;
+        }
+
+        .rectangular-container {
+            display: grid;
+            justify-content: center;
+            margin: auto auto 5vh;
+            text-align: center;
+            background: #a2afb1;
             box-shadow: gray 2px 4px 7px;
         }
 
@@ -85,6 +106,11 @@
             margin-block-end: 0.25em;
         }
 
+        .bi {
+            font-size: 5rem;
+            color: #000000;
+        }
+
         .darkbutton {
             background-color: #4b5253;
             color: white;
@@ -107,8 +133,12 @@
             width: 25%;
             min-width: 25%;
             padding: 15px 32px;
-        /*    slow animation*/
             transition: width 0.8s;
+        }
+
+        .important-number {
+            font-size: 2rem;
+            margin: 1rem 0 0 0;
         }
 
     </style>
@@ -140,7 +170,7 @@
 </header>
 <main style="text-align: center; display: block; columns: 1">
     <div id="content" style="display:grid; justify-content: center; margin:auto; text-align: center">
-        <div class="rectangular-container">
+        <div class="rectangular-container large-panel">
             <h1 class="call-to-action">The simplest way to get short URLs!</h1>
             <p>Paste your <b>looooooong</b> URL below and get a shorter one that redirects to it.</p>
             <form method="post" action="/shorten/" style="display: flex; margin-top: 0.67rem">
@@ -151,6 +181,56 @@
                 </div>
             </form>
         </div>
+        <div style="display: flex; justify-content: center; margin: auto auto">
+            <div class="rectangular-emblem">
+                <i class="bi bi-arrow-repeat"></i>
+                <p class="important-number">10000</p>
+                <p>Redirects Served</p>
+            </div>
+            <div class="rectangular-emblem">
+                <i class="bi bi-database-check"></i>
+                <p class="important-number">1555</p>
+                <p>Shortened URLs</p>
+            </div>
+            <div class="rectangular-emblem">
+                <i class="bi bi-clock-history"></i>
+                <p class="important-number">99.98%</p>
+                <p>Measured Uptime</p>
+            </div>
+
+        </div>
+
+        <div style="display: flex; justify-content: center; margin: auto auto">
+            <div class="rectangular-emblem">
+                <i class="bi bi-arrow-repeat"></i>
+                <p class="important-number">10000</p>
+                <p>Redirects Served</p>
+            </div>
+            <div class="rectangular-emblem">
+                <i class="bi bi-database-check"></i>
+                <p class="important-number">1555</p>
+                <p>Shortened URLs</p>
+            </div>
+            <div class="rectangular-emblem">
+                <i class="bi bi-clock-history"></i>
+                <p class="important-number">99.98%</p>
+                <p>Measured Uptime</p>
+            </div>
+
+        </div>
+
+
+        <div style="display: grid; justify-content: center; margin: auto auto">
+            <h2>But how does it work?</h2>
+            <div style="display: flex">
+                <ol style="text-align:left; ">
+                    <li><b>Copy</b> the long URL you want to shorten, <b>paste</b> it into the box above and <b>hit the button</b>.</li>
+                    <li>The server will give you an <b>exclusive</b> short url similar to <i>redirectory.cc/tiny</i>.</li>
+                    <li>Anyone that visits your short url will be immediately taken to the original longer one!</li>
+                </ol>
+            </div>
+        </div>
+
     </div>
 
 </main>
